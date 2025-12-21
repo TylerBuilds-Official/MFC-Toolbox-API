@@ -10,9 +10,9 @@ def get_jobs() -> dict:
         A dictionary containing all job information keyed by JobNumber,
         or an error message if no jobs are found.
     """
-    from src.tools.sql_tools.pool import get_connection
+    from src.tools.sql_tools.mysql_pool import get_mysql_connection
     
-    with get_connection() as conn:
+    with get_mysql_connection() as conn:
         with conn.cursor(dictionary=True) as cursor:
             cursor.execute("CALL MFC_ToolBox_GetAllJobInfo();")
             data = cursor.fetchall()

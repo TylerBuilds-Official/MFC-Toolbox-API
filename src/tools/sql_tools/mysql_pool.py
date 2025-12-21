@@ -14,7 +14,6 @@ POOL_CONFIG = {
     "auth_plugin": "mysql_native_password",
 }
 
-# Initialize pool once on module import
 _pool = None
 
 
@@ -27,15 +26,15 @@ def _get_pool() -> pooling.MySQLConnectionPool:
 
 
 @contextmanager
-def get_connection():
+def get_mysql_connection():
     """
-    Context manager for safely checking out a connection from the pool.
-    
+    Context manager for safely checking out a MySQL connection from the pool.
+
     Yields:
         MySQLConnection: A connection from the pool
-        
+    
     Example:
-        with get_connection() as conn:
+        with get_mysql_connection() as conn:
             with conn.cursor(dictionary=True) as cursor:
                 cursor.execute("CALL MyProcedure()")
                 results = cursor.fetchall()
@@ -44,7 +43,6 @@ def get_connection():
     try:
         conn = _get_pool().get_connection()
         
-        # Set session locale (matching your original client setup)
         try:
             with conn.cursor() as cur:
                 cur.execute("SET @@session.lc_time_names = %s", ("en_US",))
@@ -54,13 +52,11 @@ def get_connection():
         yield conn
     finally:
         if conn is not None and conn.is_connected():
-            conn.close()  # Returns connection to pool
+            conn.close()
 
 
-def close_pool():
+def close_mysql_pool():
     """Close all connections in the pool. Call on app shutdown."""
     global _pool
     if _pool is not None:
-        # Note: mysql.connector pool doesn't have explicit close
-        # Connections are closed when pool is garbage collected
         _pool = None

@@ -14,12 +14,12 @@ def get_job_info(job_number: int | str) -> dict:
         A dictionary containing job information keyed by JobNumber,
         or an error message if no jobs are found.
     """
-    from src.tools.sql_tools.pool import get_connection
+    from src.tools.sql_tools.mysql_pool import get_mysql_connection
     
     if isinstance(job_number, str):
         job_number = int(job_number)
 
-    with get_connection() as conn:
+    with get_mysql_connection() as conn:
         with conn.cursor(dictionary=True) as cursor:
             cursor.execute(f"CALL MFC_ToolBox_GetJobInfo({job_number});")
             data = cursor.fetchall()

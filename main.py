@@ -1,15 +1,16 @@
-import os
-
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+load_dotenv()
+
+import os
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.tools.org_tools.get_models import get_models
-from src.tools.sql_tools.pool import close_pool
+from src.tools.sql_tools import close_mysql_pool, close_mssql_pool
 from src.tools.routers.chat_router import ChatRouter
 from src.tools.state.state_handler import StateHandler
-from src.tools.local_mcp_tools.local_mcp_tool_definitions import TOOL_DEFINITIONS as oa_tool_definitions
+from src.tools.local_mcp_tools.local_mcp_tool_definitions import TOOL_DEFINITIONS as tool_definitions
 from src.tools.state.settings_manager import SettingsManager
 
 from src.tools.openai_chat.client import OpenAIClient
@@ -20,17 +21,21 @@ from src.tools.anthropic_chat.client import AnthropicClient
 from src.tools.anthropic_chat.handlers.anthropic_conversation_handler import AnthropicConversationHandler
 from src.tools.anthropic_chat.handlers.anthropic_message_handler import AnthropicMessageHandler
 
-
-
-
-
-load_dotenv()
+from src.tools.auth.azure_auth import azure_scheme
+from src.tools.auth import User, get_current_user, require_role, require_active_user
+from src.tools.auth.user_service import UserService
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize all providers and router"""
     try:
+        print("[STARTUP] Initializing application...")
+        print(f"[STARTUP] Azure Client ID: {os.getenv('AZURE_CLIENT_ID')}")
+        print(f"[STARTUP] Azure Tenant ID: {os.getenv('AZURE_TENANT_ID')}")
+        
         app.state.settings_manager = SettingsManager()
         app.state.state_handler = StateHandler()
 
@@ -60,14 +65,22 @@ async def lifespan(app: FastAPI):
         raise
 
     yield
-    close_pool()
+    
+    # Cleanup both pools on shutdown
+    close_mysql_pool()
+    close_mssql_pool()
 
 
 app = FastAPI(
     title="MFC Toolbox API",
-    description="MVP single-user, single-session chat interface for Metals Fabrication Company",
-    version="0.1.0",
-    lifespan=lifespan
+    description="Multi-user chat interface for Metals Fabrication Company",
+    version="0.2.0",
+    lifespan=lifespan,
+    swagger_ui_oauth2_redirect_url="/oauth2-redirect",
+    swagger_ui_init_oauth={
+        "usePkceWithAuthorizationCodeGrant": True,
+        "clientId": os.getenv("AZURE_CLIENT_ID"),
+    },
 )
 
 # CORS middleware - allows WebUI to communicate with API
@@ -85,13 +98,87 @@ app.add_middleware(
 )
 
 
+# Middleware to log all requests and responses
+@app.middleware("http")
+async def log_requests(request, call_next):
+    print(f"\n[REQUEST] {request.method} {request.url.path}")
+    print(f"[REQUEST] Headers: {dict(request.headers)}")
+    
+    try:
+        response = await call_next(request)
+        print(f"[RESPONSE] Status: {response.status_code}")
+        return response
+    except Exception as e:
+        print(f"[ERROR] Exception during request: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+
+# Exception handler for auth errors
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    print(f"[ERROR] Unhandled exception: {type(exc).__name__}: {exc}")
+    import traceback
+    traceback.print_exc()
+    
+    # Return generic error
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal server error: {str(exc)}"}
+    )
+
+
+# =============================================================================
+# Public endpoints (no auth required)
+# =============================================================================
+
 @app.get("/")
 async def root():
     return {"health": "Healthy", "status": "Running.."}
 
 
+@app.get("/auth/debug")
+async def debug_auth():
+    """Debug endpoint to check Azure AD configuration"""
+    return {
+        "client_id": os.getenv("AZURE_CLIENT_ID"),
+        "tenant_id": os.getenv("AZURE_TENANT_ID"),
+        "openid_config_loaded": azure_scheme.openid_config.authorization_endpoint is not None,
+        "authorization_endpoint": azure_scheme.openid_config.authorization_endpoint,
+    }
+
+
+@app.get("/models")
+async def get_all_models():
+    data = get_models()
+    return {"models": data}
+
+
+# =============================================================================
+# Protected endpoints (require authenticated user)
+# =============================================================================
+
+@app.get("/me")
+async def get_current_user_info(user: User = Depends(get_current_user)):
+    """Get current user's profile information."""
+    print(f"[/me] Returning user info for: {user.email}")
+    return {
+        "id": user.id,
+        "email": user.email,
+        "display_name": user.display_name,
+        "role": user.role,
+        "is_active": user.is_active,
+    }
+
+
 @app.get("/chat")
-async def chat(message: str, model: str = None, provider: str = None):
+async def chat(
+    message: str, 
+    model: str = None, 
+    provider: str = None,
+    user: User = Depends(require_active_user)  # Simplified - checks active status
+):
     try:
         response = app.state.chat_router.handle_message(
             user_message=message, model=model, provider=provider)
@@ -103,21 +190,30 @@ async def chat(message: str, model: str = None, provider: str = None):
 
 
 @app.get("/settings")
-async def get_settings():
+async def get_settings(user: User = Depends(get_current_user)):
     return app.state.settings_manager.get_all_settings()
 
+
 @app.post("/settings")
-async def update_settings(updates: dict):
+async def update_settings(updates: dict, user: User = Depends(get_current_user)):
     app.state.settings_manager.update_settings(updates)
     return {"status": "settings updated", "updates": updates}
 
+
 @app.get("/settings/provider")
-async def get_provider():
-    return {"provider": app.state.settings_manager.get_provider(),
-            "default_model": app.state.settings_manager.get_default_model()}
+async def get_provider(user: User = Depends(get_current_user)):
+    return {
+        "provider": app.state.settings_manager.get_provider(),
+        "default_model": app.state.settings_manager.get_default_model()
+    }
+
 
 @app.post("/settings/provider")
-async def set_provider(provider: str, default_model: str = None):
+async def set_provider(
+    provider: str, 
+    default_model: str = None,
+    user: User = Depends(get_current_user)
+):
     """Set provider preference"""
     try:
         app.state.settings_manager.set_provider(provider)
@@ -131,19 +227,54 @@ async def set_provider(provider: str, default_model: str = None):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/tools")
-async def get_tools():
-    return {"open_ai_tools": oa_tool_definitions}
 
-@app.get("/models")
-async def get_all_models():
-    data = get_models()
-    return {"models": data}
+@app.get("/tools")
+async def get_tools(user: User = Depends(get_current_user)):
+    return {"open_ai_tools": tool_definitions}
 
 @app.post("/reset")
-async def reset_conversation():
+async def reset_conversation(user: User = Depends(get_current_user)):
     """Reset the conversation state for a fresh start."""
     app.state.state_handler.reset()
     return {"status": "Conversation reset"}
+
+
+# =============================================================================
+# Admin endpoints (require admin role)
+# =============================================================================
+
+@app.get("/admin/users")
+async def list_all_users(user: User = Depends(require_role("admin"))):
+    """List all users in the system."""
+    users = UserService.list_users()
+    return {
+        "users": [
+            {
+                "id": u.id,
+                "email": u.email,
+                "display_name": u.display_name,
+                "role": u.role,
+                "created_at": u.created_at.isoformat(),
+                "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
+            }
+            for u in users
+        ]
+    }
+
+
+@app.post("/admin/users/{user_id}/role")
+async def set_user_role(
+    user_id: int, 
+    role: str,
+    user: User = Depends(require_role("admin"))
+):
+    """Set a user's role (admin only)."""
+    try:
+        success = UserService.set_user_role(user_id, role)
+        if not success:
+            raise HTTPException(status_code=404, detail="User not found")
+        return {"status": "updated", "user_id": user_id, "role": role}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
