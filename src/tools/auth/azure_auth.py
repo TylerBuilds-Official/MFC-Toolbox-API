@@ -8,7 +8,6 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 from jwt import PyJWKClient
-import requests
 
 client_id = os.getenv("AZURE_CLIENT_ID")
 tenant_id = os.getenv("AZURE_TENANT_ID")

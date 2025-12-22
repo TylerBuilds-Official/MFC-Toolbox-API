@@ -36,7 +36,6 @@ class StateHandler:
         elif not self.conversation_id:
             self.conversation_id = str(uuid.uuid4())
         
-        # Keep state dict in sync
         self.state["conversation_id"] = self.conversation_id
 
     def get_conversation_id(self) -> str:
@@ -45,7 +44,6 @@ class StateHandler:
         return self.conversation_id
 
     def update_state(self, updates: dict):
-        """Merge updates into current state."""
         self.state.update(updates)
 
     def get_state(self) -> dict:
@@ -57,12 +55,6 @@ class StateHandler:
             self.state["is_developer"] = True
 
     def append_to_summary(self, user_message: str, assistant_reply: str, max_chars: int = 120):
-        """
-        Append a turn to the conversation summary.
-        
-        Truncates messages to max_chars to keep the summary compact
-        while preserving context for the model.
-        """
         user_truncated = user_message[:max_chars]
         assistant_truncated = assistant_reply[:max_chars]
         

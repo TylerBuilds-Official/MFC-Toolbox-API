@@ -1,40 +1,53 @@
 from src.tools.state.state_handler import StateHandler
-from src.tools.state.settings_manager import SettingsManager
 
 
 class ChatRouter:
-    def __init__(self, settings_manager: SettingsManager, state_handler: StateHandler, openai_handler, anthropic_handler):
-        self.settings_manager = settings_manager
+    """
+    Routes chat messages to the appropriate provider handler.
+    Provider and model must be specified explicitly (resolved at endpoint level).
+    """
+
+    def __init__(self, settings_manager, state_handler: StateHandler, openai_handler, anthropic_handler):
+        # settings_manager kept for signature compatibility but no longer used
         self.state_handler = state_handler
         self.handlers = {"openai": openai_handler, "anthropic": anthropic_handler}
 
+    def handle_message(self, user_message: str, model: str, provider: str) -> str:
+        """
+        Route message to the appropriate provider handler.
 
-    def handle_message(self, user_message: str, model: str=None, provider: str=None) -> str:
-        if provider is None:
-            if model is not None:
-                provider = self._infer_provider_from_model(model)
-            else:
-                provider = self.settings_manager.get_provider()
+        Args:
+            user_message: The user's message
+            model: Model to use (required)
+            provider: Provider to use (required)
 
-        if model is None:
-            model = self.settings_manager.get_default_model()
+        Returns:
+            Assistant's response
+
+        Raises:
+            ValueError: If provider is invalid or model/provider not specified
+        """
+        if not provider:
+            raise ValueError("Provider must be specified")
+        if not model:
+            raise ValueError("Model must be specified")
 
         handler = self.handlers.get(provider)
         if not handler:
-            raise ValueError(f"Invalid provider: {provider}")
+            raise ValueError(f"Invalid provider: {provider}. Must be 'openai' or 'anthropic'")
 
         return handler.handle_message(user_message, model=model)
 
-
-    def _infer_provider_from_model(self, model: str) -> str:
+    @staticmethod
+    def infer_provider_from_model(model: str) -> str:
         """
         Infer the provider from the model name.
         Claude models start with 'claude', OpenAI models start with 'gpt'.
+
+        Returns None if cannot be inferred.
         """
         if model.startswith("claude"):
             return "anthropic"
         elif model.startswith("gpt"):
             return "openai"
-        else:
-            return self.settings_manager.get_provider()
-
+        return None

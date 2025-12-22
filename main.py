@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+
 load_dotenv()
 
 import os
@@ -11,7 +12,6 @@ from src.tools.sql_tools import close_mysql_pool, close_mssql_pool
 from src.tools.routers.chat_router import ChatRouter
 from src.tools.state.state_handler import StateHandler
 from src.tools.local_mcp_tools.local_mcp_tool_definitions import TOOL_DEFINITIONS as tool_definitions
-from src.tools.state.settings_manager import SettingsManager
 
 from src.tools.openai_chat.client import OpenAIClient
 from src.tools.openai_chat.handlers.openai_conversation_handler import OpenAIConversationHandler
@@ -24,8 +24,8 @@ from src.tools.anthropic_chat.handlers.anthropic_message_handler import Anthropi
 from src.tools.auth.azure_auth import azure_scheme
 from src.tools.auth import User, get_current_user, require_role, require_active_user
 from src.tools.auth.user_service import UserService
+from src.utils.settings_utils import UserSettingsService
 from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
 
 
 @asynccontextmanager
@@ -35,29 +35,30 @@ async def lifespan(app: FastAPI):
         print("[STARTUP] Initializing application...")
         print(f"[STARTUP] Azure Client ID: {os.getenv('AZURE_CLIENT_ID')}")
         print(f"[STARTUP] Azure Tenant ID: {os.getenv('AZURE_TENANT_ID')}")
-        
-        app.state.settings_manager = SettingsManager()
+
+        # State handler still in-memory (per-user conversations coming in Phase 2)
         app.state.state_handler = StateHandler()
 
         openai_client = OpenAIClient(api_key=os.getenv("OPENAI_API_KEY")).client
         openai_message_handler = OpenAIMessageHandler(client=openai_client)
         openai_conversation_handler = OpenAIConversationHandler(
-                                      state_handler=app.state.state_handler,
-                                      message_handler=openai_message_handler
+            state_handler=app.state.state_handler,
+            message_handler=openai_message_handler
         )
 
         anthropic_client = AnthropicClient(api_key=os.getenv("ANTHROPIC_API_KEY")).client
         anthropic_message_handler = AnthropicMessageHandler(client=anthropic_client)
         anthropic_conversation_handler = AnthropicConversationHandler(
-                                         state_handler=app.state.state_handler,
-                                         message_handler=anthropic_message_handler
+            state_handler=app.state.state_handler,
+            message_handler=anthropic_message_handler
         )
 
+        # ChatRouter no longer needs settings_manager - provider/model passed explicitly
         app.state.chat_router = ChatRouter(
-                                settings_manager=app.state.settings_manager,
-                                state_handler=app.state.state_handler,
-                                openai_handler=openai_conversation_handler,
-                                anthropic_handler=anthropic_conversation_handler
+            settings_manager=None,
+            state_handler=app.state.state_handler,
+            openai_handler=openai_conversation_handler,
+            anthropic_handler=anthropic_conversation_handler
         )
 
     except Exception as e:
@@ -65,7 +66,7 @@ async def lifespan(app: FastAPI):
         raise
 
     yield
-    
+
     # Cleanup both pools on shutdown
     close_mysql_pool()
     close_mssql_pool()
@@ -74,7 +75,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="MFC Toolbox API",
     description="Multi-user chat interface for Metals Fabrication Company",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
     swagger_ui_oauth2_redirect_url="/oauth2-redirect",
     swagger_ui_init_oauth={
@@ -103,7 +104,7 @@ app.add_middleware(
 async def log_requests(request, call_next):
     print(f"\n[REQUEST] {request.method} {request.url.path}")
     print(f"[REQUEST] Headers: {dict(request.headers)}")
-    
+
     try:
         response = await call_next(request)
         print(f"[RESPONSE] Status: {response.status_code}")
@@ -121,7 +122,7 @@ async def global_exception_handler(request, exc):
     print(f"[ERROR] Unhandled exception: {type(exc).__name__}: {exc}")
     import traceback
     traceback.print_exc()
-    
+
     # Return generic error
     return JSONResponse(
         status_code=500,
@@ -174,12 +175,38 @@ async def get_current_user_info(user: User = Depends(get_current_user)):
 
 @app.get("/chat")
 async def chat(
-    message: str, 
-    model: str = None, 
-    provider: str = None,
-    user: User = Depends(require_active_user)  # Simplified - checks active status
+        message: str,
+        model: str = None,
+        provider: str = None,
+        user: User = Depends(require_active_user)
 ):
+    """
+    Send a chat message.
+
+    Resolution order:
+    - If model provided without provider: infer provider from model name
+    - If provider provided without model: use user's default model for that provider
+    - If neither provided: use user's default settings
+    - If both provided: use as-is
+    """
     try:
+        # Load user settings
+        settings = UserSettingsService.get_settings(user.id)
+
+        # Resolve provider and model
+        if model and not provider:
+            # Infer provider from model name
+            provider = ChatRouter.infer_provider_from_model(model)
+            if not provider:
+                provider = settings.provider  # Fallback to user default
+        elif provider and not model:
+            # Use user's default model (will be validated by handler)
+            model = settings.default_model
+        elif not provider and not model:
+            # Use user's defaults for both
+            provider = settings.provider
+            model = settings.default_model
+
         response = app.state.chat_router.handle_message(
             user_message=message, model=model, provider=provider)
         return {"response": response}
@@ -191,38 +218,44 @@ async def chat(
 
 @app.get("/settings")
 async def get_settings(user: User = Depends(get_current_user)):
-    return app.state.settings_manager.get_all_settings()
+    """Get current user's settings."""
+    settings = UserSettingsService.get_settings(user.id)
+    return settings.to_dict()
 
 
 @app.post("/settings")
 async def update_settings(updates: dict, user: User = Depends(get_current_user)):
-    app.state.settings_manager.update_settings(updates)
-    return {"status": "settings updated", "updates": updates}
+    """Bulk update user settings."""
+    try:
+        settings = UserSettingsService.update_settings(user.id, updates)
+        return {"status": "settings updated", "settings": settings.to_dict()}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get("/settings/provider")
 async def get_provider(user: User = Depends(get_current_user)):
+    """Get user's current provider and default model."""
+    settings = UserSettingsService.get_settings(user.id)
     return {
-        "provider": app.state.settings_manager.get_provider(),
-        "default_model": app.state.settings_manager.get_default_model()
+        "provider": settings.provider,
+        "default_model": settings.default_model
     }
 
 
 @app.post("/settings/provider")
 async def set_provider(
-    provider: str, 
-    default_model: str = None,
-    user: User = Depends(get_current_user)
+        provider: str,
+        default_model: str = None,
+        user: User = Depends(get_current_user)
 ):
-    """Set provider preference"""
+    """Set user's provider preference (and optionally default model)."""
     try:
-        app.state.settings_manager.set_provider(provider)
-        if default_model:
-            app.state.settings_manager.set_default_model(default_model)
+        settings = UserSettingsService.update_provider(user.id, provider, default_model)
         return {
             "status": "updated",
-            "provider": provider,
-            "default_model": default_model or app.state.settings_manager.get_default_model()
+            "provider": settings.provider,
+            "default_model": settings.default_model
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -230,7 +263,9 @@ async def set_provider(
 
 @app.get("/tools")
 async def get_tools(user: User = Depends(get_current_user)):
+    """Get available tools."""
     return {"open_ai_tools": tool_definitions}
+
 
 @app.post("/reset")
 async def reset_conversation(user: User = Depends(get_current_user)):
@@ -264,9 +299,9 @@ async def list_all_users(user: User = Depends(require_role("admin"))):
 
 @app.post("/admin/users/{user_id}/role")
 async def set_user_role(
-    user_id: int, 
-    role: str,
-    user: User = Depends(require_role("admin"))
+        user_id: int,
+        role: str,
+        user: User = Depends(require_role("admin"))
 ):
     """Set a user's role (admin only)."""
     try:
@@ -276,5 +311,3 @@ async def set_user_role(
         return {"status": "updated", "user_id": user_id, "role": role}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
