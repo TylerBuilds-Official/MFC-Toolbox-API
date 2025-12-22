@@ -7,7 +7,7 @@ def get_messages(conversation_id: int, limit: int = None):
             cursor.execute(
                 f"SELECT TOP (?) Id, ConversationId, "
                 f"Role, Content, Model, Provider, "
-                f"TokensUsed, CreatedAt "
+                f"TokensUsed, CreatedAt, UserId "
                 f"FROM {SCHEMA}.Messages "
                 f"WHERE ConversationId = ? "
                 f"ORDER BY CreatedAt ASC",
@@ -17,7 +17,7 @@ def get_messages(conversation_id: int, limit: int = None):
             cursor.execute(
                 f"SELECT Id, ConversationId, "
                 f"Role, Content, Model, Provider, "
-                f"TokensUsed, CreatedAt "
+                f"TokensUsed, CreatedAt, UserId "
                 f"FROM {SCHEMA}.Messages "
                 f"WHERE ConversationId = ? "
                 f"ORDER BY CreatedAt ASC",
@@ -35,6 +35,7 @@ def get_messages(conversation_id: int, limit: int = None):
             'model': row[4],
             'provider': row[5],
             'tokens_used': row[6],
-            'created_at': row[7]
+            'created_at': row[7],
+            'user_id': row[8]
         }
         for row in rows]

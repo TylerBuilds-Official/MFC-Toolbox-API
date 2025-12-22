@@ -248,7 +248,8 @@ async def chat(message: str, model: str = None,
             content=message,
             model=model,
             provider=provider,
-            tokens_used=None  # We don't track input tokens currently
+            tokens_used=None,  # We don't track input tokens currently
+            user_id=user.id
         )
 
         # =================================================================
@@ -269,7 +270,8 @@ async def chat(message: str, model: str = None,
             content=response,
             model=model,
             provider=provider,
-            tokens_used=None  # TODO: Extract from LLM response if available
+            tokens_used=None,  # TODO: Extract from LLM response if available
+            user_id=1 # Assistant UserId
         )
 
         # =================================================================
@@ -287,6 +289,9 @@ async def chat(message: str, model: str = None,
 
         messages = MessageService.get_messages(conversation_id)
         message_count = len(messages)
+
+        preview = SummaryHelper.get_last_message_preview(messages, max_length=100)
+        ConversationService.update_conversation(conversation_id, user.id, {"last_message_preview": preview})
 
         if SummaryHelper.should_update_summary(message_count):
             new_summary = SummaryHelper.build_summary(messages, client=client, provider=provider)

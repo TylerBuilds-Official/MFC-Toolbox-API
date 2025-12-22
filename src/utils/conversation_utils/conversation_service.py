@@ -19,7 +19,8 @@ class ConversationService:
             summary=data.get("summary"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
-            is_active=data.get("is_active")
+            is_active=data.get("is_active"),
+            last_message_preview=data.get("last_message_preview")
         )
 
 
@@ -39,7 +40,8 @@ class ConversationService:
             summary=data.get("summary"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
-            is_active=data.get("is_active"))
+            is_active=data.get("is_active"),
+            last_message_preview=data.get("last_message_preview"))
 
 
 
@@ -55,7 +57,8 @@ class ConversationService:
                 summary=conversation.get("summary"),
                 created_at=conversation.get("created_at"),
                 updated_at=conversation.get("updated_at"),
-                is_active=conversation.get("is_active")
+                is_active=conversation.get("is_active"),
+                last_message_preview=conversation.get("last_message_preview")
             )
             for conversation in conversations
         ]

@@ -4,7 +4,8 @@ from src.tools.sql_tools.mssql_pool import SCHEMA
 
 def update_conversation(conversation_id: int, user_id: int, updates: dict) -> bool:
     allowed_fields = {"title": "Title",
-                      "summary": "Summary"}
+                      "summary": "Summary",
+                      "last_message_preview": "LastMessagePreview"}
     set_clauses = []
     params = []
 
@@ -17,7 +18,10 @@ def update_conversation(conversation_id: int, user_id: int, updates: dict) -> bo
         return False
 
     set_clauses.append("UpdatedAt = GETDATE()")
-    params.extend([conversation_id, user_id])
+    params.append(conversation_id)
+    params.append(user_id)
+
+
 
     with get_mssql_connection() as conn:
         cursor = conn.cursor()
@@ -25,7 +29,8 @@ def update_conversation(conversation_id: int, user_id: int, updates: dict) -> bo
             f"UPDATE {SCHEMA}.Conversations "
             f"SET {', '.join(set_clauses)} "
             f"WHERE Id = ? AND UserId = ?")
-        cursor.execute(query, params)
+
+        cursor.execute(query, tuple(params))
 
         if cursor.rowcount == 0:
             cursor.close()
