@@ -1,11 +1,17 @@
 from dotenv import load_dotenv
 
+from src.utils._dataclasses_main.create_conversation_request import CreateConversationRequest
+
 load_dotenv()
 
 import os
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+import src.utils._dataclasses_main
 
 from src.tools.org_tools.get_models import get_models
 from src.tools.sql_tools import close_mysql_pool, close_mssql_pool
@@ -24,8 +30,9 @@ from src.tools.anthropic_chat.handlers.anthropic_message_handler import Anthropi
 from src.tools.auth.azure_auth import azure_scheme
 from src.tools.auth import User, get_current_user, require_role, require_active_user
 from src.tools.auth.user_service import UserService
+
 from src.utils.settings_utils import UserSettingsService
-from fastapi.responses import JSONResponse
+from src.utils.conversation_utils import ConversationService, MessageService
 
 
 @asynccontextmanager
@@ -174,48 +181,131 @@ async def get_current_user_info(user: User = Depends(get_current_user)):
 
 
 @app.get("/chat")
-async def chat(
-        message: str,
-        model: str = None,
-        provider: str = None,
-        user: User = Depends(require_active_user)
-):
+async def chat(message: str, model: str = None,
+               provider: str = None, conversation_id: int = None,
+               user: User = Depends(require_active_user)):
     """
     Send a chat message.
 
-    Resolution order:
+    Args:
+        message: The user's message
+        model: Model to use (optional - falls back to user's default)
+        provider: Provider to use (optional - falls back to user's default)
+        conversation_id: Conversation to continue (optional - creates new if not provided)
+        user: Current user
+
+    Resolution order for model/provider:
     - If model provided without provider: infer provider from model name
     - If provider provided without model: use user's default model for that provider
     - If neither provided: use user's default settings
     - If both provided: use as-is
+
+    Returns:
+        response: The assistant's reply
+        conversation_id: The conversation ID (new or existing)
     """
     try:
-        # Load user settings
+        # =================================================================
+        # Step 1: Resolve provider and model from user settings
+        # =================================================================
         settings = UserSettingsService.get_settings(user.id)
 
-        # Resolve provider and model
         if model and not provider:
-            # Infer provider from model name
             provider = ChatRouter.infer_provider_from_model(model)
             if not provider:
-                provider = settings.provider  # Fallback to user default
+                provider = settings.provider
+
         elif provider and not model:
-            # Use user's default model (will be validated by handler)
             model = settings.default_model
+
         elif not provider and not model:
-            # Use user's defaults for both
             provider = settings.provider
             model = settings.default_model
 
+        # =================================================================
+        # Step 2: Get or create conversation
+        # =================================================================
+        if conversation_id:
+            # Verify ownership
+            conversation = ConversationService.get_conversation(conversation_id, user.id)
+            if conversation is None:
+                raise HTTPException(status_code=404, detail="Conversation not found")
+        else:
+            # Auto-create new conversation
+            conversation = ConversationService.create_conversation(
+                user.id,
+                title="New Conversation"
+            )
+            conversation_id = conversation.id
+
+        # =================================================================
+        # Step 3: Save user message to database
+        # =================================================================
+        MessageService.add_message(
+            conversation_id=conversation_id,
+            role="user",
+            content=message,
+            model=model,
+            provider=provider,
+            tokens_used=None  # We don't track input tokens currently
+        )
+
+        # =================================================================
+        # Step 4: Get response from LLM
+        # =================================================================
         response = app.state.chat_router.handle_message(
-            user_message=message, model=model, provider=provider)
-        return {"response": response}
+            user_message=message,
+            model=model,
+            provider=provider
+        )
+
+        # =================================================================
+        # Step 5: Save assistant message to database
+        # =================================================================
+        MessageService.add_message(
+            conversation_id=conversation_id,
+            role="assistant",
+            content=response,
+            model=model,
+            provider=provider,
+            tokens_used=None  # TODO: Extract from LLM response if available
+        )
+
+        # =================================================================
+        # Step 6: Update conversation summary
+        # =================================================================
+        # Truncate messages for summary
+        user_summary = message[:120] + "..." if len(message) > 120 else message
+        assistant_summary = response[:120] + "..." if len(response) > 120 else response
+
+        # Append to existing summary
+        current_summary = conversation.summary or ""
+        new_summary = (
+            f"{current_summary}"
+            f"User: {user_summary}\n"
+            f"Assistant: {assistant_summary}\n"
+        )
+
+        # Optionally limit total summary length (e.g., last 2000 chars)
+        if len(new_summary) > 2000:
+            new_summary = new_summary[-2000:]
+
+        ConversationService.update_conversation_summary(conversation_id, new_summary)
+
+        # =================================================================
+        # Step 7: Return response with conversation_id
+        # =================================================================
+        return {
+            "response": response,
+            "conversation_id": conversation_id
+        }
+
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
-
-
 @app.get("/settings")
 async def get_settings(user: User = Depends(get_current_user)):
     """Get current user's settings."""
@@ -272,6 +362,79 @@ async def reset_conversation(user: User = Depends(get_current_user)):
     """Reset the conversation state for a fresh start."""
     app.state.state_handler.reset()
     return {"status": "Conversation reset"}
+
+
+
+# =============================================================================
+# Conversation management endpoints
+# =============================================================================
+
+
+@app.get("/conversations")
+async def list_conversations(include_inactive=False, user: User = Depends(require_active_user)):
+    conversations = ConversationService.list_conversations(user.id, include_inactive=include_inactive)
+    #TODO add admin guard against including inactive conversations
+    return {
+        "conversations": [conversation.to_dict() for conversation in conversations]
+    }
+
+@app.post("/conversations")
+async def create_conversation(body: CreateConversationRequest, user: User = Depends(require_active_user)):
+    title = body.title if body else "New Conversation"
+    conversation = ConversationService.create_conversation(user.id, title=title)
+    return conversation.to_dict()
+
+
+@app.get("/conversations/{conversation_id}")
+async def get_conversation(conversation_id: int, user: User = Depends(require_active_user)):
+    conversation = ConversationService.get_conversation(conversation_id, user.id)
+
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    messages = MessageService.get_messages(conversation_id)
+
+    return {
+        "conversation": conversation.to_dict(),
+        "messages": [msg.to_dict() for msg in messages]
+    }
+
+
+@app.patch("/conversations/{conversation_id}")
+async def update_conversation(conversation_id: int,
+        body: UpdateConversationRequest,
+        user: User = Depends(require_active_user)
+):
+    updates = {}
+    if body.title is not None:
+        updates["title"] = body.title
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No updates provided")
+
+    conversation = ConversationService.update_conversation(
+        conversation_id,
+        user.id,
+        updates
+    )
+
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    return conversation.to_dict()
+
+
+@app.delete("/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: int, user: User = Depends(require_active_user)):
+    deleted = ConversationService.delete_conversation(conversation_id, user.id)
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    return {
+        "status": "deleted",
+        "conversation_id": conversation_id
+    }
 
 
 # =============================================================================

@@ -15,6 +15,10 @@ from src.tools.sql_tools.get_conversations_list import get_conversations_list
 from src.tools.sql_tools.update_conversation import update_conversation
 from src.tools.sql_tools.delete_conversation import delete_conversation
 from src.tools.sql_tools.update_conversations_summary import update_conversation_summary
+from src.tools.sql_tools.add_message import add_message
+from src.tools.sql_tools.get_messages import get_messages
+from src.tools.sql_tools.get_message import get_message
+from src.tools.sql_tools.admin_delete_messages_for_conversation import admin_delete_messages_for_conversation
 
 __all__ = [
     "get_mysql_connection",
@@ -29,4 +33,8 @@ __all__ = [
     "update_conversation",
     "delete_conversation",
     "update_conversation_summary",
+    "add_message",
+    "get_messages",
+    "get_message",
+    "admin_delete_messages_for_conversation",
 ]
