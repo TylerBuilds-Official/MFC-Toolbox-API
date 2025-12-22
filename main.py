@@ -1,7 +1,4 @@
 from dotenv import load_dotenv
-
-from src.utils._dataclasses_main.create_conversation_request import CreateConversationRequest
-
 load_dotenv()
 
 import os
@@ -11,7 +8,8 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-import src.utils._dataclasses_main
+from src.utils._dataclasses_main.update_conversation_request import UpdateConversationRequest
+from src.utils._dataclasses_main.create_conversation_request import CreateConversationRequest
 
 from src.tools.org_tools.get_models import get_models
 from src.tools.sql_tools import close_mysql_pool, close_mssql_pool
@@ -33,6 +31,7 @@ from src.tools.auth.user_service import UserService
 
 from src.utils.settings_utils import UserSettingsService
 from src.utils.conversation_utils import ConversationService, MessageService
+from src.utils.conversation_utils.summary_helper import SummaryHelper
 
 
 @asynccontextmanager
@@ -225,6 +224,7 @@ async def chat(message: str, model: str = None,
         # =================================================================
         # Step 2: Get or create conversation
         # =================================================================
+        is_new_conversation = False
         if conversation_id:
             # Verify ownership
             conversation = ConversationService.get_conversation(conversation_id, user.id)
@@ -232,6 +232,7 @@ async def chat(message: str, model: str = None,
                 raise HTTPException(status_code=404, detail="Conversation not found")
         else:
             # Auto-create new conversation
+            is_new_conversation = True
             conversation = ConversationService.create_conversation(
                 user.id,
                 title="New Conversation"
@@ -274,31 +275,35 @@ async def chat(message: str, model: str = None,
         # =================================================================
         # Step 6: Update conversation summary
         # =================================================================
-        # Truncate messages for summary
-        user_summary = message[:120] + "..." if len(message) > 120 else message
-        assistant_summary = response[:120] + "..." if len(response) > 120 else response
+        if provider == "anthropic":
+            client = AnthropicClient(api_key=os.getenv("ANTHROPIC_API_KEY")).client
+        else:
+            client = OpenAIClient(api_key=os.getenv("OPENAI_API_KEY")).client
 
-        # Append to existing summary
-        current_summary = conversation.summary or ""
-        new_summary = (
-            f"{current_summary}"
-            f"User: {user_summary}\n"
-            f"Assistant: {assistant_summary}\n"
-        )
+        generated_title = None
+        if is_new_conversation:
+            generated_title = SummaryHelper.generate_title(message, client=client, provider=provider)
+            conversation = ConversationService.update_conversation(conversation_id, user.id, {"title": generated_title})
 
-        # Optionally limit total summary length (e.g., last 2000 chars)
-        if len(new_summary) > 2000:
-            new_summary = new_summary[-2000:]
+        messages = MessageService.get_messages(conversation_id)
+        message_count = len(messages)
 
-        ConversationService.update_conversation_summary(conversation_id, new_summary)
+        if SummaryHelper.should_update_summary(message_count):
+            new_summary = SummaryHelper.build_summary(messages, client=client, provider=provider)
+            ConversationService.update_conversation(conversation_id, user.id, {"summary": new_summary})
+
 
         # =================================================================
         # Step 7: Return response with conversation_id
         # =================================================================
-        return {
+        result = {
             "response": response,
             "conversation_id": conversation_id
         }
+        if generated_title:
+            result["title"] = generated_title
+
+        return result
 
     except HTTPException:
         raise
