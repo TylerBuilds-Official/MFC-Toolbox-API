@@ -10,11 +10,18 @@ class MessageService:
     def add_message(conversation_id: int, role: str,
                     content: str, model: str,
                     provider: str, tokens_used: int = None,
-                    user_id: int = None) -> Message:
+                    user_id: int = None, thinking: str = None) -> Message:
 
-        data = add_message(conversation_id=conversation_id, role=role,
-                           content=content, model=model,
-                           provider=provider, tokens_used=tokens_used, user_id=user_id)
+        data = add_message(
+            conversation_id=conversation_id, 
+            role=role,
+            content=content, 
+            model=model,
+            provider=provider, 
+            tokens_used=tokens_used, 
+            user_id=user_id,
+            thinking=thinking
+        )
 
         return Message(
             id=data.get("id"),
@@ -25,10 +32,9 @@ class MessageService:
             provider=data.get("provider"),
             tokens_used=data.get("tokens_used"),
             created_at=data.get("created_at"),
-            user_id=data.get("user_id")
+            user_id=data.get("user_id"),
+            thinking=data.get("thinking")
         )
-
-
 
 
     @staticmethod
@@ -45,9 +51,9 @@ class MessageService:
             provider=data.get("provider"),
             tokens_used=data.get("tokens_used"),
             created_at=data.get("created_at"),
-            user_id=data.get("user_id")
+            user_id=data.get("user_id"),
+            thinking=data.get("thinking")
         )
-
 
 
     @staticmethod
@@ -63,6 +69,7 @@ class MessageService:
                 provider=message.get("provider"),
                 tokens_used=message.get("tokens_used"),
                 created_at=message.get("created_at"),
-                user_id=message.get("user_id")
+                user_id=message.get("user_id"),
+                thinking=message.get("thinking")
             )
         for message in messages_data]

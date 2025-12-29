@@ -2,11 +2,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import os
+import json
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from src.utils._dataclasses_main.update_conversation_request import UpdateConversationRequest
 from src.utils._dataclasses_main.create_conversation_request import CreateConversationRequest
@@ -32,6 +33,8 @@ from src.tools.auth.user_service import UserService
 from src.utils.settings_utils import UserSettingsService
 from src.utils.conversation_utils import ConversationService, MessageService
 from src.utils.conversation_utils.summary_helper import SummaryHelper
+from src.data.model_capabilities import get_capabilities, get_provider
+from src.data.instructions import Instructions
 
 
 @asynccontextmanager
@@ -58,6 +61,10 @@ async def lifespan(app: FastAPI):
             state_handler=app.state.state_handler,
             message_handler=anthropic_message_handler
         )
+
+        # Store message handlers directly for streaming endpoint access
+        app.state.openai_message_handler = openai_message_handler
+        app.state.anthropic_message_handler = anthropic_message_handler
 
         # ChatRouter no longer needs settings_manager - provider/model passed explicitly
         app.state.chat_router = ChatRouter(
@@ -316,6 +323,160 @@ async def chat(message: str, model: str = None,
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+
+@app.get("/chat/stream")
+async def chat_stream(
+    message: str,
+    model: str = None,
+    provider: str = None,
+    conversation_id: int = None,
+    user: User = Depends(require_active_user)
+):
+    """
+    Stream a chat response via Server-Sent Events (SSE).
+    
+    Args:
+        message: The user's message
+        model: Model to use (optional - falls back to user's default)
+        provider: Provider to use (optional - falls back to user's default)
+        conversation_id: Conversation to continue (optional)
+        user: Current authenticated user
+        
+    Returns:
+        StreamingResponse with SSE events
+    """
+    
+    # Resolve provider and model from user settings
+    settings = UserSettingsService.get_settings(user.id)
+    
+    if model and not provider:
+        provider = get_provider(model)
+        if not provider:
+            provider = settings.provider
+    elif provider and not model:
+        model = settings.default_model
+    elif not provider and not model:
+        provider = settings.provider
+        model = settings.default_model
+    
+    # Get model capabilities and user preferences
+    capabilities = get_capabilities(model)
+    enable_thinking = (
+        capabilities.reasoning_type == "extended_thinking"
+        and settings.enable_extended_thinking
+    )
+    thinking_budget = settings.anthropic_thinking_budget
+    
+    # Get or create conversation
+    is_new_conversation = False
+    if conversation_id:
+        conversation = ConversationService.get_conversation(conversation_id, user.id)
+        if conversation is None:
+            async def error_gen():
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Conversation not found'})}\n\n"
+            return StreamingResponse(error_gen(), media_type="text/event-stream")
+    else:
+        is_new_conversation = True
+        conversation = ConversationService.create_conversation(user.id, title="New Conversation")
+        conversation_id = conversation.id
+    
+    # Save user message
+    MessageService.add_message(
+        conversation_id=conversation_id,
+        role="user",
+        content=message,
+        model=model,
+        provider=provider,
+        tokens_used=None,
+        user_id=user.id
+    )
+    
+    # Build instructions
+    app.state.state_handler.update_state_from_message(message)
+    state = app.state.state_handler.get_state()
+    instructions = Instructions(state).build_instructions()
+    
+    async def event_generator():
+        full_response = ""
+        full_thinking = ""
+        
+        try:
+            yield f"data: {json.dumps({'type': 'meta', 'conversation_id': conversation_id})}\n\n"
+            
+            if provider == "anthropic":
+                handler = app.state.anthropic_message_handler
+                for event in handler.handle_message_stream(
+                    instructions=instructions,
+                    message=message,
+                    model=model,
+                    enable_thinking=enable_thinking,
+                    thinking_budget=thinking_budget
+                ):
+                    if event.get("type") == "content":
+                        full_response += event.get("text", "")
+                    elif event.get("type") == "thinking":
+                        full_thinking += event.get("text", "")
+                    elif event.get("type") == "done":
+                        full_response = event.get("full_response", full_response)
+                    yield f"data: {json.dumps(event)}\n\n"
+            else:
+                handler = app.state.openai_message_handler
+                for event in handler.handle_message_stream(
+                    instructions=instructions,
+                    message=message,
+                    model=model
+                ):
+                    if event.get("type") == "content":
+                        full_response += event.get("text", "")
+                    elif event.get("type") == "done":
+                        full_response = event.get("full_response", full_response)
+                    yield f"data: {json.dumps(event)}\n\n"
+            
+            # Save assistant message (with thinking if present)
+            MessageService.add_message(
+                conversation_id=conversation_id,
+                role="assistant",
+                content=full_response,
+                model=model,
+                provider=provider,
+                tokens_used=None,
+                user_id=1,
+                thinking=full_thinking if full_thinking else None
+            )
+            
+            # Update title if new conversation
+            generated_title = None
+            if is_new_conversation:
+                client = AnthropicClient(api_key=os.getenv("ANTHROPIC_API_KEY")).client if provider == "anthropic" else OpenAIClient(api_key=os.getenv("OPENAI_API_KEY")).client
+                generated_title = SummaryHelper.generate_title(message, client=client, provider=provider)
+                ConversationService.update_conversation(conversation_id, user.id, {"title": generated_title})
+            
+            # Update preview
+            messages = MessageService.get_messages(conversation_id)
+            preview = SummaryHelper.get_last_message_preview(messages, max_length=100)
+            ConversationService.update_conversation(conversation_id, user.id, {"last_message_preview": preview})
+            
+            # Update state
+            app.state.state_handler.append_to_summary(user_message=message, assistant_reply=full_response)
+            app.state.state_handler.increment_turn()
+            
+            # Final event
+            final_event = {"type": "stream_end", "conversation_id": conversation_id}
+            if generated_title:
+                final_event["title"] = generated_title
+            yield f"data: {json.dumps(final_event)}\n\n"
+            
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
+    )
+
+
 @app.get("/settings")
 async def get_settings(user: User = Depends(get_current_user)):
     """Get current user's settings."""

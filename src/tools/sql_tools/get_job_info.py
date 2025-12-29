@@ -23,7 +23,7 @@ def get_job_info(job_number: int | str) -> dict:
         with conn.cursor(dictionary=True) as cursor:
             cursor.execute(f"CALL MFC_ToolBox_GetJobInfo({job_number});")
             data = cursor.fetchall()
-            
+
             # Consume any remaining result sets from stored procedure
             while cursor.nextset():
                 pass

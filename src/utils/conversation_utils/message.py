@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from typing import Optional
+
 
 @dataclass
 class Message:
@@ -11,9 +13,10 @@ class Message:
     tokens_used: int | None
     created_at: str
     user_id: int | None
+    thinking: Optional[str] = None  # Extended thinking content (Claude only)
 
     def to_dict(self):
-        return {
+        result = {
             "id": self.id,
             "conversation_id": self.conversation_id,
             "role": self.role,
@@ -24,6 +27,15 @@ class Message:
             "created_at": self.created_at,
             "user_id": self.user_id
         }
+        # Only include thinking if present (keeps response clean for non-thinking messages)
+        if self.thinking:
+            result["thinking"] = self.thinking
+        return result
 
     def __repr__(self):
-        return f"Message(id={self.id}, conversation_id={self.conversation_id}, role='{self.role}', content='{self.content}', created_at='{self.created_at}, user_id={self.user_id}')"
+        return (
+            f"Message(id={self.id}, conversation_id={self.conversation_id}, "
+            f"role='{self.role}', content='{self.content[:50]}...', "
+            f"thinking={'yes' if self.thinking else 'no'}, "
+            f"created_at='{self.created_at}', user_id={self.user_id})"
+        )
