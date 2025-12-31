@@ -281,27 +281,31 @@ class AnthropicMessageHandler:
             # Check if we need to handle tool calls
             if stop_reason == "tool_use" and tool_uses:
                 # Build assistant message with all content blocks
+                # IMPORTANT: Use the content blocks from final_message to preserve
+                # required fields like 'signature' on thinking blocks
                 assistant_content = []
                 
-                if thinking_buffer:
-                    assistant_content.append({
-                        "type": "thinking",
-                        "thinking": thinking_buffer
-                    })
-                
-                if content_buffer:
-                    assistant_content.append({
-                        "type": "text",
-                        "text": content_buffer
-                    })
-                
-                for tool_use in tool_uses:
-                    assistant_content.append({
-                        "type": "tool_use",
-                        "id": tool_use["id"],
-                        "name": tool_use["name"],
-                        "input": tool_use["input"]
-                    })
+                for block in final_message.content:
+                    if block.type == "thinking":
+                        # Include the signature field - required by Anthropic API
+                        # when sending thinking blocks back in conversation history
+                        assistant_content.append({
+                            "type": "thinking",
+                            "thinking": block.thinking,
+                            "signature": block.signature
+                        })
+                    elif block.type == "text":
+                        assistant_content.append({
+                            "type": "text",
+                            "text": block.text
+                        })
+                    elif block.type == "tool_use":
+                        assistant_content.append({
+                            "type": "tool_use",
+                            "id": block.id,
+                            "name": block.name,
+                            "input": block.input
+                        })
 
                 messages.append({
                     "role": "assistant",

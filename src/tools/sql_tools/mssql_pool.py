@@ -85,8 +85,7 @@ def _get_mssql_pool() -> MSSQLConnectionPool:
             f"DRIVER={{ODBC Driver 17 for SQL Server}};"
             f"SERVER={os.getenv('MSSQL_SERVER')};"
             f"DATABASE={os.getenv('MSSQL_DATABASE')};"
-            f"UID={os.getenv('MSSQL_USER')};"
-            f"PWD={os.getenv('MSSQL_PASSWORD')};"
+            f"Trusted_Connection=yes;"
             "TrustServerCertificate=yes;"
         )
         _mssql_pool = MSSQLConnectionPool(connection_string, pool_size=5)
