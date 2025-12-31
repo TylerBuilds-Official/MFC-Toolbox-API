@@ -16,6 +16,7 @@ def get_user_settings(user_id: int, user_settings_service):
                 EnableExtendedThinking,
                 OpenAIReasoningEffort,
                 AnthropicThinkingBudget,
+                MemoryLimit,
                 UpdatedAt 
             FROM {SCHEMA}.UserSettings 
             WHERE UserId = ?""",
@@ -33,7 +34,8 @@ def get_user_settings(user_id: int, user_settings_service):
                 "enable_extended_thinking": bool(row[4]) if row[4] is not None else False,
                 "openai_reasoning_effort": row[5] or "medium",
                 "anthropic_thinking_budget": row[6] or 10000,
-                "updated_at": row[7]
+                "memory_limit": row[7] or 15,
+                "updated_at": row[8]
             }
 
         # Fallback if no settings found (shouldn't happen due to trigger)
@@ -45,5 +47,6 @@ def get_user_settings(user_id: int, user_settings_service):
             "enable_extended_thinking": False,
             "openai_reasoning_effort": "medium",
             "anthropic_thinking_budget": 10000,
+            "memory_limit": 15,
             "updated_at": None
         }

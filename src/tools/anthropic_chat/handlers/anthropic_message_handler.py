@@ -28,7 +28,8 @@ class AnthropicMessageHandler:
         instructions: str, 
         message: str, 
         history: list = None,
-        model: str = "claude-sonnet-4-5-20250929"
+        model: str = "claude-sonnet-4-5-20250929",
+        tool_context: dict = None
     ) -> str:
         """
         Send a message to Anthropic and return the assistant's response.
@@ -38,6 +39,7 @@ class AnthropicMessageHandler:
             message: Current user message  
             history: Optional list of previous messages
             model: Anthropic model to use
+            tool_context: Server-side context for tools (user_id, conversation_id)
             
         Returns:
             The assistant's response text
@@ -68,7 +70,7 @@ class AnthropicMessageHandler:
             tool_results = []
             for content_block in response.content:
                 if content_block.type == "tool_use":
-                    result = self._execute_tool_call(content_block)
+                    result = self._execute_tool_call(content_block, context=tool_context)
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": content_block.id,
@@ -105,7 +107,8 @@ class AnthropicMessageHandler:
         history: list = None,
         model: str = "claude-sonnet-4-5-20250929",
         enable_thinking: bool = False,
-        thinking_budget: int = 10000
+        thinking_budget: int = 10000,
+        tool_context: dict = None
     ) -> Generator[dict[str, Any], None, str]:
         """
         Stream a message response from Anthropic with optional extended thinking.
@@ -153,7 +156,8 @@ class AnthropicMessageHandler:
                 instructions=instructions,
                 messages=messages,
                 enable_thinking=enable_thinking,
-                thinking_budget=thinking_budget
+                thinking_budget=thinking_budget,
+                tool_context=tool_context
             )
         except Exception as e:
             yield {"type": "error", "message": str(e)}
@@ -171,7 +175,8 @@ class AnthropicMessageHandler:
         instructions: str,
         messages: list,
         enable_thinking: bool = False,
-        thinking_budget: int = 10000
+        thinking_budget: int = 10000,
+        tool_context: dict = None
     ) -> Generator[dict[str, Any], None, tuple[str, str]]:
         """
         Internal method to handle streaming with potential tool calls.
@@ -316,7 +321,7 @@ class AnthropicMessageHandler:
                 tool_results = []
                 for tool_use in tool_uses:
                     try:
-                        result = self.tool_base.dispatch(tool_use["name"], **tool_use["input"])
+                        result = self.tool_base.dispatch(tool_use["name"], context=tool_context, **tool_use["input"])
                         result_str = json.dumps(result, default=str)
                     except Exception as e:
                         result_str = json.dumps({"error": str(e)})
@@ -350,11 +355,11 @@ class AnthropicMessageHandler:
     # Helper Methods
     # =========================================================================
 
-    def _execute_tool_call(self, tool_use_block) -> str:
+    def _execute_tool_call(self, tool_use_block, context: dict = None) -> str:
         """Execute a tool call and return the result as JSON string."""
         tool_name = tool_use_block.name
         tool_args = tool_use_block.input
-        result = self.tool_base.dispatch(tool_name, **tool_args)
+        result = self.tool_base.dispatch(tool_name, context=context, **tool_args)
         return json.dumps(result, default=str)
 
     def _convert_tools_to_ant_format(self, openai_tools: list) -> list:

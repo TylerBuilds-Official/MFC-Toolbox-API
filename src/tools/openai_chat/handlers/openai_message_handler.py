@@ -23,7 +23,7 @@ class OpenAIMessageHandler:
     # Synchronous Handler (existing)
     # =========================================================================
     
-    def handle_message(self, instructions: str, message: str, history: list = None, model: str = 'gpt-4o') -> str:
+    def handle_message(self, instructions: str, message: str, history: list = None, model: str = 'gpt-4o', tool_context: dict = None) -> str:
         """
         Send a message to OpenAI and return the assistant's response.
         
@@ -32,6 +32,7 @@ class OpenAIMessageHandler:
             message: Current user message
             history: Optional list of previous messages (for future full-history mode)
             model: OpenAI model to use (default: 'gpt-4o')
+            tool_context: Server-side context for tools (user_id, conversation_id)
         
         Returns:
             The assistant's response text
@@ -66,7 +67,7 @@ class OpenAIMessageHandler:
             messages.append(assistant_message)
 
             for tool_call in assistant_message.tool_calls:
-                result = self._execute_tool_call(tool_call)
+                result = self._execute_tool_call(tool_call, context=tool_context)
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
@@ -91,7 +92,8 @@ class OpenAIMessageHandler:
         instructions: str, 
         message: str, 
         history: list = None, 
-        model: str = 'gpt-4o'
+        model: str = 'gpt-4o',
+        tool_context: dict = None
     ) -> Generator[dict[str, Any], None, str]:
         """
         Stream a message response from OpenAI.
@@ -128,7 +130,7 @@ class OpenAIMessageHandler:
         full_response = ""
         
         try:
-            full_response = yield from self._stream_with_tools(messages)
+            full_response = yield from self._stream_with_tools(messages, tool_context=tool_context)
         except Exception as e:
             yield {"type": "error", "message": str(e)}
             return ""
@@ -136,7 +138,7 @@ class OpenAIMessageHandler:
         yield {"type": "done", "full_response": full_response}
         return full_response
 
-    def _stream_with_tools(self, messages: list) -> Generator[dict[str, Any], None, str]:
+    def _stream_with_tools(self, messages: list, tool_context: dict = None) -> Generator[dict[str, Any], None, str]:
         """
         Internal method to handle streaming with potential tool calls.
         Uses a loop to handle multiple rounds of tool calls.
@@ -228,7 +230,7 @@ class OpenAIMessageHandler:
                     
                     try:
                         tool_args = json.loads(tc["arguments"])
-                        result = self.tool_base.dispatch(tc["name"], **tool_args)
+                        result = self.tool_base.dispatch(tc["name"], context=tool_context, **tool_args)
                         result_str = json.dumps(result, default=str)
                     except Exception as e:
                         result_str = json.dumps({"error": str(e)})
@@ -253,11 +255,11 @@ class OpenAIMessageHandler:
     # Helper Methods
     # =========================================================================
 
-    def _execute_tool_call(self, tool_call) -> str:
+    def _execute_tool_call(self, tool_call, context: dict = None) -> str:
         """Execute a tool call and return the result as JSON string."""
         tool_name = tool_call.function.name
         tool_args = json.loads(tool_call.function.arguments)
-        result = self.tool_base.dispatch(tool_name, **tool_args)
+        result = self.tool_base.dispatch(tool_name, context=context, **tool_args)
         return json.dumps(result, default=str)
 
     def change_model(self, model: str):

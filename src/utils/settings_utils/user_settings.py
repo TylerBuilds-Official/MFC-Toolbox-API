@@ -12,12 +12,16 @@ class UserSettings:
     
     # ==========================================================================
     # Streaming & Reasoning Settings
-    # TODO: Add these columns to SQL table, using defaults until then
     # ==========================================================================
     enable_streaming: bool = True                   # Stream responses token-by-token
     enable_extended_thinking: bool = False          # Enable thinking/reasoning display
     openai_reasoning_effort: str = "medium"         # low/medium/high for gpt-5+
     anthropic_thinking_budget: int = 10000          # Token budget for Claude thinking
+    
+    # ==========================================================================
+    # Memory Settings
+    # ==========================================================================
+    memory_limit: int = 15                          # Max memories to inject into prompt
 
     def to_dict(self) -> dict:
         """Convert to API response format."""
@@ -30,6 +34,9 @@ class UserSettings:
             "enable_extended_thinking": self.enable_extended_thinking,
             "openai_reasoning_effort": self.openai_reasoning_effort,
             "anthropic_thinking_budget": self.anthropic_thinking_budget,
+            
+            # Memory
+            "memory_limit": self.memory_limit,
 
             # TODO: Add more settings here as DB columns are added
             # Hardcoded until DB columns exist

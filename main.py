@@ -15,17 +15,13 @@ from src.utils._dataclasses_main.create_conversation_request import CreateConver
 from src.tools.org_tools.get_models import get_models
 from src.tools.sql_tools import close_mysql_pool, close_mssql_pool
 from src.tools.sql_tools.voltron_pool import close_voltron_pool
-from src.tools.routers.chat_router import ChatRouter
-from src.tools.state.state_handler import StateHandler
 from src.tools.local_mcp_tools.local_mcp_tool_definitions import TOOL_DEFINITIONS as tool_definitions
 from src.tools.tool_registry import get_chat_tools, get_data_tools
 
 from src.tools.openai_chat.client import OpenAIClient
-from src.tools.openai_chat.handlers.openai_conversation_handler import OpenAIConversationHandler
 from src.tools.openai_chat.handlers.openai_message_handler import OpenAIMessageHandler
 
 from src.tools.anthropic_chat.client import AnthropicClient
-from src.tools.anthropic_chat.handlers.anthropic_conversation_handler import AnthropicConversationHandler
 from src.tools.anthropic_chat.handlers.anthropic_message_handler import AnthropicMessageHandler
 
 from src.tools.auth.azure_auth import azure_scheme
@@ -35,8 +31,11 @@ from src.tools.auth.user_service import UserService
 from src.utils.settings_utils import UserSettingsService
 from src.utils.conversation_utils import ConversationService, MessageService
 from src.utils.conversation_utils.summary_helper import SummaryHelper
+from src.utils.memory_utils import MemoryService
+from src.utils.conversation_state_utils import ConversationStateService
 from src.data.model_capabilities import get_capabilities, get_provider
 from src.data.instructions import Instructions
+from src.tools.state.state_handler import StateHandler
 
 
 @asynccontextmanager
@@ -47,34 +46,15 @@ async def lifespan(app: FastAPI):
         print(f"[STARTUP] Azure Client ID: {os.getenv('AZURE_CLIENT_ID')}")
         print(f"[STARTUP] Azure Tenant ID: {os.getenv('AZURE_TENANT_ID')}")
 
-        # State handler still in-memory (per-user conversations coming in Phase 2)
-        app.state.state_handler = StateHandler()
-
         openai_client = OpenAIClient(api_key=os.getenv("OPENAI_API_KEY")).client
         openai_message_handler = OpenAIMessageHandler(client=openai_client)
-        openai_conversation_handler = OpenAIConversationHandler(
-            state_handler=app.state.state_handler,
-            message_handler=openai_message_handler
-        )
 
         anthropic_client = AnthropicClient(api_key=os.getenv("ANTHROPIC_API_KEY")).client
         anthropic_message_handler = AnthropicMessageHandler(client=anthropic_client)
-        anthropic_conversation_handler = AnthropicConversationHandler(
-            state_handler=app.state.state_handler,
-            message_handler=anthropic_message_handler
-        )
 
-        # Store message handlers directly for streaming endpoint access
+        # Store message handlers directly for endpoint access
         app.state.openai_message_handler = openai_message_handler
         app.state.anthropic_message_handler = anthropic_message_handler
-
-        # ChatRouter no longer needs settings_manager - provider/model passed explicitly
-        app.state.chat_router = ChatRouter(
-            settings_manager=None,
-            state_handler=app.state.state_handler,
-            openai_handler=openai_conversation_handler,
-            anthropic_handler=anthropic_conversation_handler
-        )
 
     except Exception as e:
         print(f"Error initializing: {e}")
@@ -222,7 +202,7 @@ async def chat(message: str, model: str = None,
         settings = UserSettingsService.get_settings(user.id)
 
         if model and not provider:
-            provider = ChatRouter.infer_provider_from_model(model)
+            provider = get_provider(model)
             if not provider:
                 provider = settings.provider
 
@@ -252,6 +232,17 @@ async def chat(message: str, model: str = None,
             conversation_id = conversation.id
 
         # =================================================================
+        # Step 2b: Load or create conversation state
+        # =================================================================
+        saved_state = ConversationStateService.get_state(conversation_id)
+        if saved_state:
+            state_handler = StateHandler.from_dict(conversation_id, saved_state)
+        else:
+            state_handler = StateHandler(conversation_id)
+        
+        state_handler.update_state_from_message(message)
+
+        # =================================================================
         # Step 3: Save user message to database
         # =================================================================
         MessageService.add_message(
@@ -267,11 +258,27 @@ async def chat(message: str, model: str = None,
         # =================================================================
         # Step 4: Get response from LLM
         # =================================================================
-        response = app.state.chat_router.handle_message(
-            user_message=message,
-            model=model,
-            provider=provider
-        )
+        memories = MemoryService.get_memories(user.id, limit=settings.memory_limit)
+        memories_text = MemoryService.format_for_prompt(memories)
+        
+        state = state_handler.get_state()
+        instructions_text = Instructions(state, user=user, memories_text=memories_text).build_instructions()
+        tool_context = {"user_id": user.id, "conversation_id": conversation_id}
+        
+        if provider == "anthropic":
+            response = app.state.anthropic_message_handler.handle_message(
+                instructions=instructions_text,
+                message=message,
+                model=model,
+                tool_context=tool_context
+            )
+        else:
+            response = app.state.openai_message_handler.handle_message(
+                instructions=instructions_text,
+                message=message,
+                model=model,
+                tool_context=tool_context
+            )
 
         # =================================================================
         # Step 5: Save assistant message to database
@@ -285,6 +292,13 @@ async def chat(message: str, model: str = None,
             tokens_used=None,  # TODO: Extract from LLM response if available
             user_id=1 # Assistant UserId
         )
+
+        # =================================================================
+        # Step 5b: Update and save conversation state
+        # =================================================================
+        state_handler.append_to_summary(user_message=message, assistant_reply=response)
+        state_handler.increment_turn()
+        ConversationStateService.save_state(conversation_id, state_handler.to_dict())
 
         # =================================================================
         # Step 6: Update conversation summary
@@ -569,6 +583,15 @@ async def chat_stream(
         conversation = ConversationService.create_conversation(user.id, title="New Conversation")
         conversation_id = conversation.id
     
+    # Load or create conversation state
+    saved_state = ConversationStateService.get_state(conversation_id)
+    if saved_state:
+        state_handler = StateHandler.from_dict(conversation_id, saved_state)
+    else:
+        state_handler = StateHandler(conversation_id)
+    
+    state_handler.update_state_from_message(message)
+    
     # Save user message
     MessageService.add_message(
         conversation_id=conversation_id,
@@ -579,12 +602,15 @@ async def chat_stream(
         tokens_used=None,
         user_id=user.id
     )
-    
-    # Build instructions
-    app.state.state_handler.update_state_from_message(message)
-    state = app.state.state_handler.get_state()
-    instructions = Instructions(state).build_instructions()
-    
+
+    # Build instructions with memories
+    state = state_handler.get_state()
+    memories = MemoryService.get_memories(user.id, limit=settings.memory_limit)
+    memories_text = MemoryService.format_for_prompt(memories)
+    instructions = Instructions(state, user=user, memories_text=memories_text).build_instructions()
+    tool_context = {"user_id": user.id, "conversation_id": conversation_id}
+
+
     async def event_generator():
         full_response = ""
         full_thinking = ""
@@ -599,7 +625,8 @@ async def chat_stream(
                     message=message,
                     model=model,
                     enable_thinking=enable_thinking,
-                    thinking_budget=thinking_budget
+                    thinking_budget=thinking_budget,
+                    tool_context=tool_context
                 ):
                     if event.get("type") == "content":
                         full_response += event.get("text", "")
@@ -613,7 +640,8 @@ async def chat_stream(
                 for event in handler.handle_message_stream(
                     instructions=instructions,
                     message=message,
-                    model=model
+                    model=model,
+                    tool_context=tool_context
                 ):
                     if event.get("type") == "content":
                         full_response += event.get("text", "")
@@ -645,9 +673,10 @@ async def chat_stream(
             preview = SummaryHelper.get_last_message_preview(messages, max_length=100)
             ConversationService.update_conversation(conversation_id, user.id, {"last_message_preview": preview})
             
-            # Update state
-            app.state.state_handler.append_to_summary(user_message=message, assistant_reply=full_response)
-            app.state.state_handler.increment_turn()
+            # Update and save conversation state
+            state_handler.append_to_summary(user_message=message, assistant_reply=full_response)
+            state_handler.increment_turn()
+            ConversationStateService.save_state(conversation_id, state_handler.to_dict())
             
             # Final event
             final_event = {"type": "stream_end", "conversation_id": conversation_id}
@@ -683,7 +712,7 @@ async def update_settings(updates: dict, user: User = Depends(get_current_user))
 
 
 @app.get("/settings/provider")
-async def get_provider(user: User = Depends(get_current_user)):
+async def get_provider_settings(user: User = Depends(get_current_user)):
     """Get user's current provider and default model."""
     settings = UserSettingsService.get_settings(user.id)
     return {
@@ -717,10 +746,24 @@ async def get_tools(user: User = Depends(get_current_user)):
 
 
 @app.post("/reset")
-async def reset_conversation(user: User = Depends(get_current_user)):
-    """Reset the conversation state for a fresh start."""
-    app.state.state_handler.reset()
-    return {"status": "Conversation reset"}
+async def reset_conversation(conversation_id: int = None, user: User = Depends(get_current_user)):
+    """
+    Reset the conversation state for a specific conversation.
+    If no conversation_id provided, returns an error.
+    """
+    if not conversation_id:
+        raise HTTPException(status_code=400, detail="conversation_id is required")
+    
+    # Verify ownership
+    conversation = ConversationService.get_conversation(conversation_id, user.id)
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    # Save fresh state
+    fresh_state = StateHandler(conversation_id)
+    ConversationStateService.save_state(conversation_id, fresh_state.to_dict())
+    
+    return {"status": "Conversation state reset", "conversation_id": conversation_id}
 
 
 

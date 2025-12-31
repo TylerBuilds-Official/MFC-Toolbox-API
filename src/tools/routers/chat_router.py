@@ -1,4 +1,5 @@
 from src.tools.state.state_handler import StateHandler
+from src.tools.auth import User
 
 
 class ChatRouter:
@@ -12,7 +13,7 @@ class ChatRouter:
         self.state_handler = state_handler
         self.handlers = {"openai": openai_handler, "anthropic": anthropic_handler}
 
-    def handle_message(self, user_message: str, model: str, provider: str) -> str:
+    def handle_message(self, user_message: str, model: str, provider: str, user: User = None, memories_text: str = None, conversation_id: int = None) -> str:
         """
         Route message to the appropriate provider handler.
 
@@ -20,6 +21,9 @@ class ChatRouter:
             user_message: The user's message
             model: Model to use (required)
             provider: Provider to use (required)
+            user: Current authenticated user (optional)
+            memories_text: Formatted memories for system prompt (optional)
+            conversation_id: Current conversation ID for tool context (optional)
 
         Returns:
             Assistant's response
@@ -36,7 +40,7 @@ class ChatRouter:
         if not handler:
             raise ValueError(f"Invalid provider: {provider}. Must be 'openai' or 'anthropic'")
 
-        return handler.handle_message(user_message, model=model)
+        return handler.handle_message(user_message, model=model, user=user, memories_text=memories_text, conversation_id=conversation_id)
 
     @staticmethod
     def infer_provider_from_model(model: str) -> str:

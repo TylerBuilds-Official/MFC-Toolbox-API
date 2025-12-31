@@ -1,6 +1,7 @@
 from src.data.instructions import Instructions
 from src.tools.state.state_handler import StateHandler
 from src.tools.openai_chat.handlers.openai_message_handler import OpenAIMessageHandler
+from src.tools.auth import User
 
 
 class OpenAIConversationHandler:
@@ -8,7 +9,7 @@ class OpenAIConversationHandler:
         self.state_handler = state_handler
         self.message_handler = message_handler
 
-    def handle_message(self, user_message: str, model="gpt-4o") -> str:
+    def handle_message(self, user_message: str, model: str = "gpt-4o", user: User = None, memories_text: str = None, conversation_id: int = None) -> str:
         """
         Process a single conversation turn.
         
@@ -23,13 +24,22 @@ class OpenAIConversationHandler:
         
         # Get current state and build instructions
         state = self.state_handler.get_state()
-        instructions = Instructions(state).build_instructions()
+        instructions = Instructions(state, user=user, memories_text=memories_text).build_instructions()
+        
+        # Build tool context for user-aware tools
+        tool_context = None
+        if user:
+            tool_context = {
+                "user_id": user.id,
+                "conversation_id": conversation_id
+            }
         
         # Get response from OpenAI
         assistant_reply = self.message_handler.handle_message(
             instructions=instructions,
             message=user_message,
-            model=model
+            model=model,
+            tool_context=tool_context
         )
         
         # Update conversation summary for context in future turns

@@ -29,6 +29,7 @@ class UserSettingsService:
             enable_extended_thinking=settings.get("enable_extended_thinking", False),
             openai_reasoning_effort=settings.get("openai_reasoning_effort", "medium"),
             anthropic_thinking_budget=settings.get("anthropic_thinking_budget", 10000),
+            memory_limit=settings.get("memory_limit", 15),
             updated_at=settings.get("updated_at")
         )
 
@@ -60,10 +61,11 @@ class UserSettingsService:
         enable_streaming: bool = None,
         enable_extended_thinking: bool = None,
         openai_reasoning_effort: str = None,
-        anthropic_thinking_budget: int = None
+        anthropic_thinking_budget: int = None,
+        memory_limit: int = None
     ) -> UserSettings:
         """
-        Update streaming and thinking settings.
+        Update streaming, thinking, and memory settings.
         Only updates fields that are explicitly provided.
         """
         # Validate inputs
@@ -72,6 +74,9 @@ class UserSettingsService:
         
         if anthropic_thinking_budget and (anthropic_thinking_budget < 1000 or anthropic_thinking_budget > 100000):
             raise ValueError("Thinking budget must be between 1000 and 100000")
+        
+        if memory_limit is not None and (memory_limit < 0 or memory_limit > 50):
+            raise ValueError("Memory limit must be between 0 and 50")
 
         # Build SET clause dynamically
         updates = []
@@ -92,6 +97,10 @@ class UserSettingsService:
         if anthropic_thinking_budget is not None:
             updates.append("AnthropicThinkingBudget = ?")
             params.append(anthropic_thinking_budget)
+        
+        if memory_limit is not None:
+            updates.append("MemoryLimit = ?")
+            params.append(memory_limit)
         
         if not updates:
             return UserSettingsService.get_settings(user_id)
@@ -127,18 +136,20 @@ class UserSettingsService:
         elif new_model != current.default_model:
             UserSettingsService.update_model(user_id, new_model)
 
-        # Handle streaming/thinking settings
-        streaming_updates = {}
+        # Handle streaming/thinking/memory settings
+        other_updates = {}
         if "enable_streaming" in updates:
-            streaming_updates["enable_streaming"] = updates["enable_streaming"]
+            other_updates["enable_streaming"] = updates["enable_streaming"]
         if "enable_extended_thinking" in updates:
-            streaming_updates["enable_extended_thinking"] = updates["enable_extended_thinking"]
+            other_updates["enable_extended_thinking"] = updates["enable_extended_thinking"]
         if "openai_reasoning_effort" in updates:
-            streaming_updates["openai_reasoning_effort"] = updates["openai_reasoning_effort"]
+            other_updates["openai_reasoning_effort"] = updates["openai_reasoning_effort"]
         if "anthropic_thinking_budget" in updates:
-            streaming_updates["anthropic_thinking_budget"] = updates["anthropic_thinking_budget"]
+            other_updates["anthropic_thinking_budget"] = updates["anthropic_thinking_budget"]
+        if "memory_limit" in updates:
+            other_updates["memory_limit"] = updates["memory_limit"]
 
-        if streaming_updates:
-            return UserSettingsService.update_streaming_settings(user_id, **streaming_updates)
+        if other_updates:
+            return UserSettingsService.update_streaming_settings(user_id, **other_updates)
 
         return UserSettingsService.get_settings(user_id)
