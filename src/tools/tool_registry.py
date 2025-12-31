@@ -42,6 +42,7 @@ TOOL_CATEGORIES = {
 # Import executors here to keep registry self-contained
 from src.tools.local_mcp_tools.local_mcp_tool_getAllJobInfo import oa_get_jobs
 from src.tools.local_mcp_tools.local_mcp_tool_getJobInfo import oa_get_job_info
+from src.tools.local_mcp_tools.local_mcp_tool_getMachineProductionData import oa_get_machine_production
 
 
 TOOL_REGISTRY: list[dict] = [
@@ -95,6 +96,41 @@ TOOL_REGISTRY: list[dict] = [
         "data_visualization": True,
         "default_chart_type": "detail",
         "normalizer": "single_job",
+    },
+    {
+        # Identity
+        "name": "get_machine_production",
+        "description": "Get daily production counts per CNC machine (pieces processed and total weight) over a date range.",
+        
+        # Permissions
+        "category": "reports",
+        
+        # Parameters (OpenAI function calling format)
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "days_back": {
+                    "type": "integer",
+                    "description": "Number of days to look back (default 30)"
+                }
+            },
+            "required": []
+        },
+        
+        # Execution
+        "executor": oa_get_machine_production,
+        
+        # Data visualization
+        "data_visualization": True,
+        "default_chart_type": "line",
+        "chart_config": {
+            "x_axis": "ProductionDate",
+            "series_by": "Machine",
+            "y_axis": "PiecesProcessed",
+            "y_axis_label": "Pieces Processed",
+            "x_axis_label": "Date",
+        },
+        "normalizer": None,  # Use generic normalizer
     },
 ]
 
@@ -188,12 +224,18 @@ def get_data_tools(user_role: str) -> list[dict]:
         # Convert parameters to simpler format for frontend
         simple_params = _convert_params_to_simple(tool["parameters"])
         
-        tools.append({
+        tool_entry = {
             "name": tool["name"],
             "description": tool["description"],
             "parameters": simple_params,
             "default_chart_type": tool.get("default_chart_type", "table"),
-        })
+        }
+        
+        # Include chart config if present
+        if tool.get("chart_config"):
+            tool_entry["chart_config"] = tool["chart_config"]
+        
+        tools.append(tool_entry)
     
     return tools
 

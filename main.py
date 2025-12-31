@@ -14,6 +14,7 @@ from src.utils._dataclasses_main.create_conversation_request import CreateConver
 
 from src.tools.org_tools.get_models import get_models
 from src.tools.sql_tools import close_mysql_pool, close_mssql_pool
+from src.tools.sql_tools.voltron_pool import close_voltron_pool
 from src.tools.routers.chat_router import ChatRouter
 from src.tools.state.state_handler import StateHandler
 from src.tools.local_mcp_tools.local_mcp_tool_definitions import TOOL_DEFINITIONS as tool_definitions
@@ -81,9 +82,10 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Cleanup both pools on shutdown
+    # Cleanup all pools on shutdown
     close_mysql_pool()
     close_mssql_pool()
+    close_voltron_pool()
 
 
 app = FastAPI(
@@ -106,6 +108,8 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "https://localhost:5173",
+        "https://10.0.59.72:5173",
     ],
     allow_credentials=True,
     allow_methods=["*"],

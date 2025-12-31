@@ -27,5 +27,22 @@ TOOL_DEFINITIONS = [
                 "required": []
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_machine_production",
+            "description": "Get daily production counts per CNC machine (pieces processed and total weight) over a date range.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "days_back": {
+                        "type": "integer",
+                        "description": "Number of days to look back (default 30)"
+                    }
+                },
+                "required": []
+            }
+        }
     }
 ]
