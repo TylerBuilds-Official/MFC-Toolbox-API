@@ -17,6 +17,7 @@ from src.tools.sql_tools import close_mysql_pool, close_mssql_pool
 from src.tools.routers.chat_router import ChatRouter
 from src.tools.state.state_handler import StateHandler
 from src.tools.local_mcp_tools.local_mcp_tool_definitions import TOOL_DEFINITIONS as tool_definitions
+from src.tools.tool_registry import get_chat_tools, get_data_tools
 
 from src.tools.openai_chat.client import OpenAIClient
 from src.tools.openai_chat.handlers.openai_conversation_handler import OpenAIConversationHandler
@@ -340,9 +341,9 @@ _data_execution_service = DataExecutionService()
 
 
 @app.get("/data/tools")
-async def get_data_tools(user: User = Depends(require_active_user)):
-    """Get list of tools available for data visualization."""
-    return {"tools": _data_execution_service.get_available_tools()}
+async def get_data_tools_endpoint(user: User = Depends(require_active_user)):
+    """Get list of tools available for data visualization, filtered by user role."""
+    return {"tools": _data_execution_service.get_available_tools(user.role)}
 
 
 @app.post("/data/sessions")
@@ -437,10 +438,11 @@ async def execute_data_session(
     Execute the tool for a session and store results.
     
     Flow:
-    1. Sets status to 'running'
-    2. Executes the MCP tool
-    3. Normalizes and stores results
-    4. Sets status to 'success' or 'error'
+    1. Verify user has permission for the tool
+    2. Sets status to 'running'
+    3. Executes the MCP tool
+    4. Normalizes and stores results
+    5. Sets status to 'success' or 'error'
     
     Returns the updated session and result (if successful).
     """
@@ -450,7 +452,7 @@ async def execute_data_session(
         raise HTTPException(status_code=404, detail="Session not found")
     
     try:
-        updated_session, result = _data_execution_service.execute(session_id)
+        updated_session, result = _data_execution_service.execute(session_id, user.role)
         
         response = {
             "session": updated_session.to_dict(),
@@ -461,7 +463,9 @@ async def execute_data_session(
             response["result"] = result.to_dict()
         
         return response
-        
+    
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -704,8 +708,8 @@ async def set_provider(
 
 @app.get("/tools")
 async def get_tools(user: User = Depends(get_current_user)):
-    """Get available tools."""
-    return {"open_ai_tools": tool_definitions}
+    """Get available chat tools, filtered by user role."""
+    return {"open_ai_tools": get_chat_tools(user.role)}
 
 
 @app.post("/reset")

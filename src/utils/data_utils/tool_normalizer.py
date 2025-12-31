@@ -3,9 +3,11 @@ Normalizes raw MCP tool output into a standard tabular format.
 
 Each tool may return data in different shapes. This service converts
 them all to a consistent {columns, rows, row_count} structure for
-visualization.
+visualization, ensuring all values are JSON-serializable.
 """
 from typing import Any
+from datetime import datetime, date, timedelta
+from decimal import Decimal
 from src.utils.data_utils.data_result import NormalizedResult
 
 
@@ -48,6 +50,34 @@ class ToolNormalizer:
         # Fallback to generic normalizer
         return self._normalize_generic(raw_result)
 
+    def _serialize_value(self, value: Any) -> Any:
+        """
+        Convert non-JSON-serializable types to serializable equivalents.
+        
+        Handles:
+        - datetime/date → ISO format string
+        - Decimal → float
+        - bytes → decoded string
+        - timedelta → string representation
+        """
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, date):
+            return value.isoformat()
+        if isinstance(value, Decimal):
+            return float(value)
+        if isinstance(value, bytes):
+            return value.decode('utf-8', errors='replace')
+        if isinstance(value, timedelta):
+            return str(value)
+        return value
+
+    def _serialize_row(self, row: list) -> list:
+        """Serialize all values in a row."""
+        return [self._serialize_value(v) for v in row]
+
     def _normalize_job_list(self, raw_result: dict) -> NormalizedResult:
         """
         Normalizes get_all_job_info output.
@@ -75,11 +105,11 @@ class ToolNormalizer:
         remaining = sorted(all_keys - set(columns))
         columns.extend(remaining)
         
-        # Build rows
+        # Build rows with serialization
         rows = []
         for job_number, job_data in raw_result.items():
             if isinstance(job_data, dict):
-                row = [job_data.get(col) for col in columns]
+                row = [self._serialize_value(job_data.get(col)) for col in columns]
                 rows.append(row)
         
         return NormalizedResult(
@@ -93,11 +123,19 @@ class ToolNormalizer:
         """
         Normalizes get_job_info output (single job detail).
         
-        Input shape: {field: value, ...}
+        Input shape: {job_number: {field: value, ...}, ...}
         Output: Two-column table (Field, Value) for detail view
         """
         if not raw_result or isinstance(raw_result, dict) and "message" in raw_result:
             return NormalizedResult.empty()
+        
+        # get_job_info returns {job_number: {data}}, so we need to extract the inner dict
+        # Get the first (and likely only) job data
+        if raw_result:
+            first_key = next(iter(raw_result.keys()))
+            job_data = raw_result[first_key]
+            if isinstance(job_data, dict):
+                raw_result = job_data
         
         # For single job, create Field/Value pairs
         columns = ["Field", "Value"]
@@ -113,13 +151,13 @@ class ToolNormalizer:
         added_keys = set()
         for key in preferred_order:
             if key in raw_result:
-                rows.append([key, raw_result[key]])
+                rows.append([key, self._serialize_value(raw_result[key])])
                 added_keys.add(key)
         
         # Add remaining fields alphabetically
         for key in sorted(raw_result.keys()):
             if key not in added_keys:
-                rows.append([key, raw_result[key]])
+                rows.append([key, self._serialize_value(raw_result[key])])
         
         return NormalizedResult(
             columns=columns,
@@ -145,7 +183,7 @@ class ToolNormalizer:
         if isinstance(raw_result, dict) and "message" in raw_result and len(raw_result) == 1:
             return NormalizedResult(
                 columns=["Message"],
-                rows=[[raw_result["message"]]],
+                rows=[[self._serialize_value(raw_result["message"])]],
                 row_count=1,
                 meta={"type": "message"}
             )
@@ -162,7 +200,8 @@ class ToolNormalizer:
             rows = []
             for item in raw_result:
                 if isinstance(item, dict):
-                    rows.append([item.get(col) for col in columns])
+                    row = [self._serialize_value(item.get(col)) for col in columns]
+                    rows.append(row)
             
             return NormalizedResult(
                 columns=columns,
@@ -184,7 +223,8 @@ class ToolNormalizer:
                 rows = []
                 for item in raw_result.values():
                     if isinstance(item, dict):
-                        rows.append([item.get(col) for col in columns])
+                        row = [self._serialize_value(item.get(col)) for col in columns]
+                        rows.append(row)
                 
                 return NormalizedResult(
                     columns=columns,
@@ -194,7 +234,7 @@ class ToolNormalizer:
             
             # Single flat dict → Field/Value
             columns = ["Field", "Value"]
-            rows = [[k, v] for k, v in raw_result.items()]
+            rows = [[k, self._serialize_value(v)] for k, v in raw_result.items()]
             return NormalizedResult(
                 columns=columns,
                 rows=rows,
@@ -205,7 +245,7 @@ class ToolNormalizer:
         # List of primitives
         if isinstance(raw_result, list):
             columns = ["Value"]
-            rows = [[item] for item in raw_result]
+            rows = [[self._serialize_value(item)] for item in raw_result]
             return NormalizedResult(
                 columns=columns,
                 rows=rows,
@@ -215,6 +255,6 @@ class ToolNormalizer:
         # Single primitive value
         return NormalizedResult(
             columns=["Value"],
-            rows=[[raw_result]],
+            rows=[[self._serialize_value(raw_result)]],
             row_count=1
         )

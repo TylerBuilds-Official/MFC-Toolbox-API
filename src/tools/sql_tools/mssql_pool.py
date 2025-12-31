@@ -1,14 +1,8 @@
-# src/tools/sql_tools/mssql_pool.py
-"""
-MS SQL Server connection pool for application data (users, settings, conversations).
-Uses pyodbc with ODBC Driver 17 for SQL Server.
-"""
 import os
 import pyodbc
 from contextlib import contextmanager
 from queue import Queue, Empty
 from threading import Lock
-
 
 class MSSQLConnectionPool:
     """Thread-safe connection pool for MS SQL Server using pyodbc."""

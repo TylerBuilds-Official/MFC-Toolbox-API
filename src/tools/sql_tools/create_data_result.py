@@ -29,18 +29,40 @@ def create_data_result(
     
     with get_mssql_connection() as conn:
         cursor = conn.cursor()
+        
+        # Use SET NOCOUNT ON to prevent row count messages from interfering
+        # Use OUTPUT INTO with table variable to work with triggers
         cursor.execute(
             f"""
+            SET NOCOUNT ON;
+            
+            DECLARE @InsertedResult TABLE (
+                Id INT,
+                SessionId INT,
+                Columns NVARCHAR(MAX),
+                Rows NVARCHAR(MAX),
+                [RowCount] INT,
+                CreatedAt DATETIME2
+            );
+            
             INSERT INTO {SCHEMA}.DataResults 
                 (SessionId, Columns, Rows, [RowCount])
             OUTPUT 
                 INSERTED.Id, INSERTED.SessionId, INSERTED.Columns, 
                 INSERTED.Rows, INSERTED.[RowCount], INSERTED.CreatedAt
-            VALUES (?, ?, ?, ?)
+            INTO @InsertedResult
+            VALUES (?, ?, ?, ?);
+            
+            SELECT * FROM @InsertedResult;
             """,
             (session_id, columns_json, rows_json, row_count)
         )
+        
         row = cursor.fetchone()
+        
+        if not row:
+            raise Exception("Failed to retrieve inserted result")
+            
         cursor.close()
         
         return {
