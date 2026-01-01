@@ -15,7 +15,7 @@ from src.utils._dataclasses_main.create_conversation_request import CreateConver
 from src.tools.org_tools.get_models import get_models
 from src.tools.sql_tools import close_mysql_pool, close_mssql_pool, close_voltron_pool
 from src.tools.local_mcp_tools.local_mcp_tool_definitions import TOOL_DEFINITIONS as tool_definitions
-from src.tools.tool_registry import get_chat_tools, get_data_tools
+from src.tools.tool_registry import get_chat_tools, get_chat_toolbox_tools, get_data_tools
 
 from src.tools.openai_chat.client import OpenAIClient
 from src.tools.openai_chat.handlers.openai_message_handler import OpenAIMessageHandler
@@ -262,7 +262,7 @@ async def chat(message: str, model: str = None,
         
         state = state_handler.get_state()
         instructions_text = Instructions(state, user=user, memories_text=memories_text).build_instructions()
-        tool_context = {"user_id": user.id, "conversation_id": conversation_id}
+        tool_context = {"user_id": user.id, "user_role": user.role, "conversation_id": conversation_id}
         
         if provider == "anthropic":
             response = app.state.anthropic_message_handler.handle_message(
@@ -607,7 +607,7 @@ async def chat_stream(
     memories = MemoryService.get_memories(user.id, limit=settings.memory_limit)
     memories_text = MemoryService.format_for_prompt(memories)
     instructions = Instructions(state, user=user, memories_text=memories_text).build_instructions()
-    tool_context = {"user_id": user.id, "conversation_id": conversation_id}
+    tool_context = {"user_id": user.id, "user_role": user.role, "conversation_id": conversation_id}
 
 
     async def event_generator():
@@ -739,9 +739,26 @@ async def set_provider(
 
 
 @app.get("/tools")
-async def get_tools(user: User = Depends(get_current_user)):
-    """Get available chat tools, filtered by user role."""
-    return {"open_ai_tools": get_chat_tools(user.role)}
+async def get_tools(
+    surface: str = None,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get available tools, filtered by user role and optional surface.
+    
+    Args:
+        surface: Optional filter for tool visibility
+            - None or "ai": All tools for AI (default)
+            - "chat_toolbox": Tools for chat sidebar UI
+            - "data": Tools for data visualization page
+    """
+    if surface == "chat_toolbox":
+        return {"tools": get_chat_toolbox_tools(user.role)}
+    elif surface == "data":
+        return {"tools": get_data_tools(user.role)}
+    else:
+        # Default: all tools for AI
+        return {"tools": get_chat_tools(user.role)}
 
 
 @app.post("/reset")

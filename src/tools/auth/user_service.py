@@ -26,13 +26,13 @@ class User:
     @property
     def is_active(self) -> bool:
         """Users with 'pending' role are not yet activated."""
-        return self.role in ("user", "admin")
+        return self.role in ("user", "manager", "admin")
 
 
 class UserService:
     """Handles user CRUD operations against MS SQL."""
     
-    VALID_ROLES = {"pending", "user", "admin"}
+    VALID_ROLES = {"pending", "user", "manager", "admin"}
     
     @staticmethod
     def get_or_create_user(azure_oid: str, email: str, display_name: str) -> User:

@@ -4,7 +4,7 @@ from typing import Generator, Any
 from anthropic import Anthropic
 
 from src.tools.local_mcp_tools.local_mcp_tool_base import OAToolBase
-from src.tools.local_mcp_tools.local_mcp_tool_definitions import TOOL_DEFINITIONS
+from src.tools.tool_registry import get_chat_tools
 from src.data.valid_models import VALID_ANT_MODELS
 
 
@@ -53,12 +53,16 @@ class AnthropicMessageHandler:
         messages.extend(history)
         messages.append({"role": "user", "content": message})
 
+        # Get filtered tools based on user role
+        user_role = tool_context.get("user_role", "pending") if tool_context else "pending"
+        filtered_tools = get_chat_tools(user_role)
+
         response = self.client.messages.create(
             model=self.model,
             max_tokens=4096,
             system=instructions,
             messages=messages,
-            tools=self._convert_tools_to_ant_format(TOOL_DEFINITIONS)
+            tools=self._convert_tools_to_ant_format(filtered_tools)
         )
 
         while response.stop_reason == "tool_use":
@@ -87,7 +91,7 @@ class AnthropicMessageHandler:
                 max_tokens=4096,
                 system=instructions,
                 messages=messages,
-                tools=self._convert_tools_to_ant_format(TOOL_DEFINITIONS)
+                tools=self._convert_tools_to_ant_format(filtered_tools)
             )
 
         text_content = next(
@@ -188,6 +192,10 @@ class AnthropicMessageHandler:
         max_tool_rounds = 10
         tool_round = 0
 
+        # Get filtered tools based on user role
+        user_role = tool_context.get("user_role", "pending") if tool_context else "pending"
+        filtered_tools = get_chat_tools(user_role)
+
         while tool_round < max_tool_rounds:
             tool_round += 1
 
@@ -197,7 +205,7 @@ class AnthropicMessageHandler:
                 "max_tokens": 8192,
                 "system": instructions,
                 "messages": messages,
-                "tools": self._convert_tools_to_ant_format(TOOL_DEFINITIONS),
+                "tools": self._convert_tools_to_ant_format(filtered_tools),
             }
 
             # Add extended thinking if enabled

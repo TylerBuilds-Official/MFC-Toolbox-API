@@ -4,7 +4,7 @@ from typing import Generator, Any
 import openai
 
 from src.tools.local_mcp_tools.local_mcp_tool_base import OAToolBase
-from src.tools.local_mcp_tools.local_mcp_tool_definitions import TOOL_DEFINITIONS
+from src.tools.tool_registry import get_chat_tools
 from src.data.valid_models import VALID_OA_MODELS
 
 
@@ -48,10 +48,14 @@ class OpenAIMessageHandler:
         messages.extend(history)
         messages.append({"role": "user", "content": message})
 
+        # Get filtered tools based on user role
+        user_role = tool_context.get("user_role", "pending") if tool_context else "pending"
+        filtered_tools = get_chat_tools(user_role)
+
         chat_params = {
             "model": self.model,
             "messages": messages,
-            "tools": TOOL_DEFINITIONS,
+            "tools": filtered_tools,
         }
 
         if "gpt-5" in self.model:
@@ -77,7 +81,7 @@ class OpenAIMessageHandler:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                tools=TOOL_DEFINITIONS
+                tools=filtered_tools
             )
             assistant_message = response.choices[0].message
 
@@ -148,6 +152,10 @@ class OpenAIMessageHandler:
         full_response = ""
         max_tool_rounds = 10  # Safety limit
         tool_round = 0
+
+        # Get filtered tools based on user role
+        user_role = tool_context.get("user_role", "pending") if tool_context else "pending"
+        filtered_tools = get_chat_tools(user_role)
         
         while tool_round < max_tool_rounds:
             tool_round += 1
@@ -155,7 +163,7 @@ class OpenAIMessageHandler:
             chat_params = {
                 "model": self.model,
                 "messages": messages,
-                "tools": TOOL_DEFINITIONS,
+                "tools": filtered_tools,
                 "stream": True,
             }
             
