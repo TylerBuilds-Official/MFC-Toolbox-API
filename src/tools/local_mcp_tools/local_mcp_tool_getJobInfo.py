@@ -1,4 +1,4 @@
-from src.tools.sql_tools.get_job_info import get_job_info
+from src.tools.sql_tools import get_job_info
 
 
 def oa_get_job_info(job_number: int | str):

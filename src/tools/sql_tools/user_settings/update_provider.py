@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from src.data.valid_models import VALID_OA_MODELS, VALID_ANT_MODELS
-from src.tools.sql_tools.mssql_pool import get_mssql_connection, SCHEMA
+from src.tools.sql_tools.pools import get_mssql_connection, SCHEMA
 
 
 def update_model_provider(user_id: int, provider: str, default_model: str = None, user_settings_service=None):

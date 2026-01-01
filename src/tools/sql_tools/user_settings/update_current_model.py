@@ -1,5 +1,5 @@
 from datetime import datetime
-from src.tools.sql_tools.mssql_pool import get_mssql_connection, SCHEMA
+from src.tools.sql_tools.pools import get_mssql_connection, SCHEMA
 from src.data.valid_models import VALID_OA_MODELS, VALID_ANT_MODELS
 
 

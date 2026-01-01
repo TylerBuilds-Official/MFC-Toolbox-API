@@ -1,4 +1,4 @@
-from src.tools.sql_tools.mssql_pool import SCHEMA, get_mssql_connection
+from src.tools.sql_tools.pools import get_mssql_connection, SCHEMA
 
 
 def update_conversation_summary(conversation_id: int, summary: str) -> None:

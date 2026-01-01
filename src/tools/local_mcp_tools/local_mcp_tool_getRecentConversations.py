@@ -1,4 +1,4 @@
-from src.tools.sql_tools.conversations import get_recent_conversations
+from src.tools.sql_tools import get_recent_conversations
 
 
 def oa_get_recent_conversations(days_back: int = 7, limit: int = 10, user_id: int = None):

@@ -1,6 +1,5 @@
-import re
-from datetime import datetime, timedelta
-from src.tools.sql_tools.mssql_pool import get_mssql_connection, SCHEMA
+from datetime import datetime
+from src.tools.sql_tools.pools import get_mssql_connection, SCHEMA
 
 
 def search_conversations(

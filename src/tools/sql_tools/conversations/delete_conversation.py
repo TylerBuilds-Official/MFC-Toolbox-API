@@ -1,5 +1,4 @@
-from src.tools.sql_tools import get_mssql_connection
-from src.tools.sql_tools.mssql_pool import SCHEMA
+from src.tools.sql_tools.pools import get_mssql_connection, SCHEMA
 
 
 def delete_conversation(conversation_id: int, user_id: int) -> bool:

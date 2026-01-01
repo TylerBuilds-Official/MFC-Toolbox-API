@@ -1,4 +1,4 @@
-from src.tools.sql_tools.get_jobs import get_jobs
+from src.tools.sql_tools import get_jobs
 
 
 def oa_get_jobs():

@@ -1,6 +1,8 @@
 """
 Retrieves job information for a specific job number.
 """
+from src.tools.sql_tools.pools import get_mysql_connection
+
 
 def get_job_info(job_number: int | str) -> dict:
     """
@@ -14,8 +16,6 @@ def get_job_info(job_number: int | str) -> dict:
         A dictionary containing job information keyed by JobNumber,
         or an error message if no jobs are found.
     """
-    from src.tools.sql_tools.mysql_pool import get_mysql_connection
-    
     if isinstance(job_number, str):
         job_number = int(job_number)
 

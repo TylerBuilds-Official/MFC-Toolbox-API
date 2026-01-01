@@ -1,12 +1,10 @@
 """
 Service layer for DataResult operations.
 """
-from src.tools.sql_tools.create_data_result import create_data_result
-from src.tools.sql_tools.get_data_result import (
-    get_data_result, 
-    get_data_results_for_session,
-    check_session_has_results
-)
+from src.tools.sql_tools import (get_data_result, get_data_results_for_session,
+                                 check_session_has_results,
+                                 create_data_result)
+
 from src.utils.data_utils.data_result import DataResult, NormalizedResult
 
 

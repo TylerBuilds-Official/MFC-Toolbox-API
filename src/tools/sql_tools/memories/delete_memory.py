@@ -1,4 +1,4 @@
-from src.tools.sql_tools.mssql_pool import get_mssql_connection, SCHEMA
+from src.tools.sql_tools.pools import get_mssql_connection, SCHEMA
 
 
 def delete_memory(memory_id: int, user_id: int) -> bool:

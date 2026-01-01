@@ -1,7 +1,7 @@
-from src.tools.sql_tools.get_user_settings import get_user_settings
-from src.tools.sql_tools.update_current_model import update_current_model
-from src.tools.sql_tools.update_provider import update_model_provider
-from src.tools.sql_tools.mssql_pool import get_mssql_connection, SCHEMA
+from src.tools.sql_tools import (get_user_settings,
+                                 update_current_model, update_model_provider,
+                                 get_mssql_connection, SCHEMA)
+
 from src.utils.settings_utils.user_settings import UserSettings
 
 

@@ -2,8 +2,7 @@
 Updates a data session.
 """
 import json
-from src.tools.sql_tools import get_mssql_connection
-from src.tools.sql_tools.mssql_pool import SCHEMA
+from src.tools.sql_tools.pools import get_mssql_connection, SCHEMA
 
 
 def update_data_session(session_id: int, user_id: int, updates: dict) -> bool:

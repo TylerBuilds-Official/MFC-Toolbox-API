@@ -1,4 +1,4 @@
-from src.tools.sql_tools.mssql_pool import get_mssql_connection, SCHEMA
+from src.tools.sql_tools.pools import get_mssql_connection, SCHEMA
 
 
 def upsert_conversation_state(conversation_id: int, state_json: str, turn_count: int) -> bool:

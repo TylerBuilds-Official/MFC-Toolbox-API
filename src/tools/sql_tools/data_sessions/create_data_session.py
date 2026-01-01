@@ -2,8 +2,7 @@
 Creates a new data session in the database.
 """
 import json
-from src.tools.sql_tools import get_mssql_connection
-from src.tools.sql_tools.mssql_pool import SCHEMA
+from src.tools.sql_tools.pools import get_mssql_connection, SCHEMA
 
 
 def create_data_session(

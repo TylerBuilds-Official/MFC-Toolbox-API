@@ -1,10 +1,9 @@
-from src.tools.sql_tools import get_conversation
-from src.tools.sql_tools.create_new_conversation import create_new_conversation
-from src.tools.sql_tools.delete_conversation import delete_conversation
-from src.tools.sql_tools.get_conversations_list import get_conversations_list
-from src.tools.sql_tools.update_conversation import update_conversation
-from src.tools.sql_tools.update_conversations_summary import update_conversation_summary
+from src.tools.sql_tools import (get_conversation, create_new_conversation, delete_conversation,
+                                 get_conversations_list, update_conversation, update_conversation_summary)
+
 from src.utils.conversation_utils.conversation import Conversation
+
+
 
 
 class ConversationService:

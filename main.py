@@ -13,8 +13,7 @@ from src.utils._dataclasses_main.update_conversation_request import UpdateConver
 from src.utils._dataclasses_main.create_conversation_request import CreateConversationRequest
 
 from src.tools.org_tools.get_models import get_models
-from src.tools.sql_tools import close_mysql_pool, close_mssql_pool
-from src.tools.sql_tools.voltron_pool import close_voltron_pool
+from src.tools.sql_tools import close_mysql_pool, close_mssql_pool, close_voltron_pool
 from src.tools.local_mcp_tools.local_mcp_tool_definitions import TOOL_DEFINITIONS as tool_definitions
 from src.tools.tool_registry import get_chat_tools, get_data_tools
 

@@ -1,4 +1,4 @@
-from src.tools.sql_tools.mssql_pool import get_mssql_connection, SCHEMA
+from src.tools.sql_tools.pools import get_mssql_connection, SCHEMA
 
 
 def search_memories(user_id: int, query: str, limit: int = 10) -> list[dict]:

@@ -1,4 +1,4 @@
-from src.tools.sql_tools.conversations import get_conversation_messages
+from src.tools.sql_tools import get_conversation_messages
 
 
 def oa_get_conversation_messages(conversation_id: int, user_id: int = None):

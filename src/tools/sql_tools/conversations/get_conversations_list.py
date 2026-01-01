@@ -1,5 +1,5 @@
-from src.tools.sql_tools import get_mssql_connection
-from src.tools.sql_tools.mssql_pool import SCHEMA
+from src.tools.sql_tools.pools import get_mssql_connection, SCHEMA
+
 
 def get_conversations_list(user_id: int, include_inactive=False) -> list[tuple]:
     with get_mssql_connection() as conn:

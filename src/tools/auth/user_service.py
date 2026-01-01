@@ -5,7 +5,7 @@ User management service - CRUD operations against MS SQL.
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
-from src.tools.sql_tools.mssql_pool import get_mssql_connection, SCHEMA
+from src.tools.sql_tools import get_mssql_connection, SCHEMA
 
 
 @dataclass

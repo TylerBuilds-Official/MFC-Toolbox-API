@@ -4,7 +4,7 @@ Get machine production data for charting.
 Retrieves daily production counts (pieces processed, total weight) 
 per CNC machine from FabTracker.ProductionLog.
 """
-from src.tools.sql_tools.voltron_pool import get_voltron_connection
+from src.tools.sql_tools.pools import get_voltron_connection
 
 
 def get_machine_production(days_back: int = 30) -> list[dict]:

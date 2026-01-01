@@ -1,4 +1,4 @@
-from src.tools.sql_tools.conversations import search_conversations
+from src.tools.sql_tools import search_conversations
 
 
 def oa_search_conversations(query: str, limit: int = 10, user_id: int = None):

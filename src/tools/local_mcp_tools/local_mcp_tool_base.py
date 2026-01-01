@@ -21,6 +21,8 @@ class OAToolBase:
         'get_all_job_info': oa_get_jobs,
         'get_machine_production': oa_get_machine_production,
         'search_user_memories': oa_search_user_memories,
+
+        # Non - Callable
         'save_user_memory': oa_save_user_memory,
         'search_conversations': oa_search_conversations,
         'get_recent_conversations': oa_get_recent_conversations,

@@ -1,4 +1,5 @@
-from src.tools.sql_tools.mssql_pool import get_mssql_connection, SCHEMA
+from src.tools.sql_tools.pools import get_mssql_connection, SCHEMA
+
 
 def get_user_settings(user_id: int, user_settings_service):
     """

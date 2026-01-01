@@ -1,40 +1,157 @@
 # src/tools/sql_tools/__init__.py
 """
-Database connection pools for MFC Toolbox.
+SQL Tools - Database operations for MFC Toolbox.
 
-- MySQL: Fabrication database (job info, org data)
-- MSSQL: Application database (users, settings, conversations)
+Organized by domain with facade exports for backward compatibility.
 """
-from src.tools.sql_tools.mysql_pool import get_mysql_connection, close_mysql_pool
-from src.tools.sql_tools.mssql_pool import get_mssql_connection, close_mssql_pool
-from src.tools.sql_tools.get_jobs import get_jobs
-from src.tools.sql_tools.get_job_info import get_job_info
-from src.tools.sql_tools.get_conversation import get_conversation
-from src.tools.sql_tools.create_new_conversation import create_new_conversation
-from src.tools.sql_tools.get_conversations_list import get_conversations_list
-from src.tools.sql_tools.update_conversation import update_conversation
-from src.tools.sql_tools.delete_conversation import delete_conversation
-from src.tools.sql_tools.update_conversations_summary import update_conversation_summary
-from src.tools.sql_tools.add_message import add_message
-from src.tools.sql_tools.get_messages import get_messages
-from src.tools.sql_tools.get_message import get_message
-from src.tools.sql_tools.admin_delete_messages_for_conversation import admin_delete_messages_for_conversation
+
+
+# ============================================
+# Connection Pools
+# ============================================
+
+from src.tools.sql_tools.pools.mssql_pool import get_mssql_connection, close_mssql_pool, SCHEMA
+from src.tools.sql_tools.pools.mysql_pool import get_mysql_connection, close_mysql_pool
+from src.tools.sql_tools.pools.voltron_pool import get_voltron_connection, close_voltron_pool
+
+
+# ============================================
+# Conversations
+# ============================================
+
+from src.tools.sql_tools.conversations.create_conversation import create_new_conversation
+from src.tools.sql_tools.conversations.get_conversation import get_conversation
+from src.tools.sql_tools.conversations.get_conversations_list import get_conversations_list
+from src.tools.sql_tools.conversations.get_conversation_messages import get_conversation_messages
+from src.tools.sql_tools.conversations.get_recent_conversations import get_recent_conversations
+from src.tools.sql_tools.conversations.search_conversations import search_conversations
+from src.tools.sql_tools.conversations.update_conversation import update_conversation
+from src.tools.sql_tools.conversations.update_conversation_summary import update_conversation_summary
+from src.tools.sql_tools.conversations.delete_conversation import delete_conversation
+
+
+# ============================================
+# Messages
+# ============================================
+
+from src.tools.sql_tools.messages.add_message import add_message
+from src.tools.sql_tools.messages.get_message import get_message
+from src.tools.sql_tools.messages.get_messages import get_messages
+from src.tools.sql_tools.messages.admin_delete_messages import admin_delete_messages_for_conversation
+
+
+# ============================================
+# Conversation State
+# ============================================
+
+from src.tools.sql_tools.conversation_state.get_conversation_state import get_conversation_state
+from src.tools.sql_tools.conversation_state.upsert_conversation_state import upsert_conversation_state
+
+
+# ============================================
+# Memories
+# ============================================
+
+from src.tools.sql_tools.memories.get_user_memories import get_user_memories
+from src.tools.sql_tools.memories.search_memories import search_memories
+from src.tools.sql_tools.memories.get_memory import get_memory
+from src.tools.sql_tools.memories.create_memory import create_memory
+from src.tools.sql_tools.memories.update_memory import update_memory
+from src.tools.sql_tools.memories.delete_memory import delete_memory
+
+
+# ============================================
+# User Settings
+# ============================================
+
+from src.tools.sql_tools.user_settings.get_user_settings import get_user_settings
+from src.tools.sql_tools.user_settings.update_current_model import update_current_model
+from src.tools.sql_tools.user_settings.update_provider import update_model_provider
+
+
+# ============================================
+# Data Sessions & Results
+# ============================================
+
+from src.tools.sql_tools.data_sessions.create_data_session import create_data_session
+from src.tools.sql_tools.data_sessions.get_data_session import get_data_session
+from src.tools.sql_tools.data_sessions.get_data_sessions_list import get_data_sessions_list, get_data_sessions_by_group
+from src.tools.sql_tools.data_sessions.update_data_session import update_data_session, update_data_session_status
+from src.tools.sql_tools.data_sessions.create_data_result import create_data_result
+from src.tools.sql_tools.data_sessions.get_data_result import get_data_result, get_data_results_for_session, check_session_has_results
+
+
+# ============================================
+# Reporting (Voltron / MySQL)
+# ============================================
+
+from src.tools.sql_tools.reporting.get_jobs import get_jobs
+from src.tools.sql_tools.reporting.get_job_info import get_job_info
+from src.tools.sql_tools.reporting.get_machine_production import get_machine_production
+
+
+# ============================================
+# __all__ Export List
+# ============================================
 
 __all__ = [
+    # Pools
+    "get_mssql_connection",
+    "close_mssql_pool",
+    "SCHEMA",
     "get_mysql_connection",
     "close_mysql_pool",
-    "get_mssql_connection", 
-    "close_mssql_pool",
+    "get_voltron_connection",
+    "close_voltron_pool",
+    
+    # Conversations
+    "create_new_conversation",
+    "get_conversation",
+    "get_conversations_list",
+    "get_conversation_messages",
+    "get_recent_conversations",
+    "search_conversations",
+    "update_conversation",
+    "update_conversation_summary",
+    "delete_conversation",
+    
+    # Messages
+    "add_message",
+    "get_message",
+    "get_messages",
+    "admin_delete_messages_for_conversation",
+    
+    # Conversation State
+    "get_conversation_state",
+    "upsert_conversation_state",
+    
+    # Memories
+    "get_user_memories",
+    "search_memories",
+    "get_memory",
+    "create_memory",
+    "update_memory",
+    "delete_memory",
+    
+    # User Settings
+    "get_user_settings",
+    "update_current_model",
+    "update_model_provider",
+    
+    # Data Sessions & Results
+    "create_data_session",
+    "get_data_session",
+    "get_data_sessions_list",
+    "get_data_sessions_by_group",
+    "update_data_session",
+    "update_data_session_status",
+    "create_data_result",
+    "get_data_result",
+    "get_data_results_for_session",
+    "check_session_has_results",
+    
+    # Reporting
     "get_jobs",
     "get_job_info",
-    "get_conversation",
-    "create_new_conversation",
-    "get_conversations_list",
-    "update_conversation",
-    "delete_conversation",
-    "update_conversation_summary",
-    "add_message",
-    "get_messages",
-    "get_message",
-    "admin_delete_messages_for_conversation",
+    "get_machine_production",
 ]
