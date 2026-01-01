@@ -87,5 +87,64 @@ TOOL_DEFINITIONS = [
                 "required": ["content", "memory_type"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_conversations",
+            "description": "Search past conversations by keyword. Searches titles, summaries, and message content. Returns ranked results with context snippets showing where matches occurred. Use when user references past discussions, asks 'did we talk about...', 'what did we discuss regarding...', or when historical conversation context would help. Returns max 10 results by default - refine search terms or increase limit if more results needed.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Keywords to search for (e.g., 'job 6516', 'CNC production', 'transmittal issues', 'drawing review')"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum results to return (default 10, max 20)"
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_recent_conversations",
+            "description": "Get recent conversations by time window. Use for 'what did we discuss yesterday', 'conversations from last week', 'show me recent chats', or 'continue where we left off'. Returns conversations sorted by most recent activity. Useful for time-based queries rather than keyword searches.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "days_back": {
+                        "type": "integer",
+                        "description": "How many days to look back (default 7, max 90)"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum results to return (default 10, max 20)"
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_conversation_messages",
+            "description": "Fetch full message history for a specific conversation. Use AFTER search_conversations or get_recent_conversations when you need complete context beyond the summary. Returns all messages in chronological order including any extended thinking content.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "conversation_id": {
+                        "type": "integer",
+                        "description": "The conversation ID to retrieve messages for (obtained from search or recent conversations)"
+                    }
+                },
+                "required": ["conversation_id"]
+            }
+        }
     }
 ]

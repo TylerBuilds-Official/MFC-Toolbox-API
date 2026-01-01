@@ -3,6 +3,9 @@ from src.tools.local_mcp_tools.local_mcp_tool_getAllJobInfo import oa_get_jobs
 from src.tools.local_mcp_tools.local_mcp_tool_getMachineProductionData import oa_get_machine_production
 from src.tools.local_mcp_tools.local_mcp_tool_searchUserMemories import oa_search_user_memories
 from src.tools.local_mcp_tools.local_mcp_tool_saveUserMemory import oa_save_user_memory
+from src.tools.local_mcp_tools.local_mcp_tool_searchConversations import oa_search_conversations
+from src.tools.local_mcp_tools.local_mcp_tool_getRecentConversations import oa_get_recent_conversations
+from src.tools.local_mcp_tools.local_mcp_tool_getConversationMessages import oa_get_conversation_messages
 
 
 class OAToolBase:
@@ -19,12 +22,18 @@ class OAToolBase:
         'get_machine_production': oa_get_machine_production,
         'search_user_memories': oa_search_user_memories,
         'save_user_memory': oa_save_user_memory,
+        'search_conversations': oa_search_conversations,
+        'get_recent_conversations': oa_get_recent_conversations,
+        'get_conversation_messages': oa_get_conversation_messages,
     }
     
     # Tools that need user_id injected
     USER_ID_TOOLS = {
         'search_user_memories',
         'save_user_memory',
+        'search_conversations',
+        'get_recent_conversations',
+        'get_conversation_messages',
     }
     
     # Tools that also need conversation_id injected
