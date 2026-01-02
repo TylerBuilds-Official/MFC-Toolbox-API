@@ -120,7 +120,7 @@ TOOL_REGISTRY: list[dict] = [
         # Visibility
         "chat_toolbox": True,
         "data_visualization": True,
-        "default_chart_type": "table",
+        "default_chart_type": "card",
         "normalizer": "single_job",
     },
     {
@@ -204,7 +204,7 @@ TOOL_REGISTRY: list[dict] = [
         "executor": oa_get_job_details,
         "chat_toolbox": True,
         "data_visualization": True,
-        "default_chart_type": "detail",
+        "default_chart_type": "card",
     },
     {
         "name": "get_jobs_by_pm",
@@ -292,7 +292,7 @@ TOOL_REGISTRY: list[dict] = [
         "executor": oa_get_ot_hours_by_job,
         "chat_toolbox": True,
         "data_visualization": True,
-        "default_chart_type": "bar",
+        "default_chart_type": "card",
         "chart_config": {
             "x_axis": "CLASTNAME",
             "y_axis": "TotalOTHours",
