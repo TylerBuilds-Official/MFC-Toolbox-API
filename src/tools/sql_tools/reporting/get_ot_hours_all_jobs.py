@@ -42,7 +42,7 @@ def get_ot_hours_all_jobs(
         cursor = conn.cursor()
         
         cursor.execute(
-            "EXEC ScheduleShare.GetOTHoursAllJobs @StartDate = ?, @EndDate = ?",
+            "EXEC ScheduleShare.Toolbox_GetOTHoursAllJobs @StartDate = ?, @EndDate = ?",
             (start_date, end_date)
         )
         

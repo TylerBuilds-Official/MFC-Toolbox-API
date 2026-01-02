@@ -4,7 +4,8 @@ Centralized Tool Registry
 Single source of truth for all tools available in the system.
 Handles:
 - Tool definitions (name, description, parameters)
-- Permission categories
+- Permission categories (category → role-based access)
+- Display categories (display_category → UI grouping)
 - Execution routing
 - Visibility flags:
   - chat_toolbox: Show in chat sidebar UI (default True)
@@ -51,6 +52,10 @@ from src.tools.local_mcp_tools.local_mcp_tool_getJobInfo import oa_get_job_info
 from src.tools.local_mcp_tools.local_mcp_tool_getMachineProductionData import oa_get_machine_production
 from src.tools.local_mcp_tools.local_mcp_tool_getOTHoursByJob import oa_get_ot_hours_by_job
 from src.tools.local_mcp_tools.local_mcp_tool_getOTHoursAllJobs import oa_get_ot_hours_all_jobs
+from src.tools.local_mcp_tools.local_mcp_tool_getActiveJobs import oa_get_active_jobs
+from src.tools.local_mcp_tools.local_mcp_tool_getJobDetails import oa_get_job_details
+from src.tools.local_mcp_tools.local_mcp_tool_getJobsByPM import oa_get_jobs_by_pm
+from src.tools.local_mcp_tools.local_mcp_tool_getJobsShippingSoon import oa_get_jobs_shipping_soon
 from src.tools.local_mcp_tools.local_mcp_tool_searchUserMemories import oa_search_user_memories
 from src.tools.local_mcp_tools.local_mcp_tool_saveUserMemory import oa_save_user_memory
 from src.tools.local_mcp_tools.local_mcp_tool_searchConversations import oa_search_conversations
@@ -66,6 +71,9 @@ TOOL_REGISTRY: list[dict] = [
         
         # Permissions
         "category": "job_read",
+        
+        # UI Display
+        "display_category": "Jobs",
         
         # Parameters (OpenAI function calling format)
         "parameters": {
@@ -91,6 +99,9 @@ TOOL_REGISTRY: list[dict] = [
         # Permissions
         "category": "job_read",
         
+        # UI Display
+        "display_category": "Jobs",
+        
         # Parameters (OpenAI function calling format)
         "parameters": {
             "type": "object",
@@ -109,7 +120,7 @@ TOOL_REGISTRY: list[dict] = [
         # Visibility
         "chat_toolbox": True,
         "data_visualization": True,
-        "default_chart_type": "detail",
+        "default_chart_type": "table",
         "normalizer": "single_job",
     },
     {
@@ -119,6 +130,9 @@ TOOL_REGISTRY: list[dict] = [
         
         # Permissions
         "category": "reports",
+        
+        # UI Display
+        "display_category": "Production",
         
         # Parameters (OpenAI function calling format)
         "parameters": {
@@ -150,12 +164,113 @@ TOOL_REGISTRY: list[dict] = [
     },
     
     # =========================================================================
+    # ScheduleShare Jobs (Voltron)
+    # =========================================================================
+    {
+        "name": "get_active_jobs",
+        "description": "Get all active jobs from ScheduleShare. Optionally include on-hold jobs.",
+        "category": "job_read",
+        "display_category": "Jobs",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "include_on_hold": {
+                    "type": "boolean",
+                    "description": "Whether to include on-hold jobs (default false)"
+                }
+            },
+            "required": []
+        },
+        "executor": oa_get_active_jobs,
+        "chat_toolbox": True,
+        "data_visualization": True,
+        "default_chart_type": "table",
+    },
+    {
+        "name": "get_job_details",
+        "description": "Get comprehensive details for a specific job from ScheduleShare by job number.",
+        "category": "job_read",
+        "display_category": "Jobs",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "job_number": {
+                    "type": "string",
+                    "description": "The job number to retrieve details for (e.g. '6516')"
+                }
+            },
+            "required": ["job_number"]
+        },
+        "executor": oa_get_job_details,
+        "chat_toolbox": True,
+        "data_visualization": True,
+        "default_chart_type": "detail",
+    },
+    {
+        "name": "get_jobs_by_pm",
+        "description": "Get all jobs for a specific Project Manager from ScheduleShare.",
+        "category": "job_read",
+        "display_category": "Jobs",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "pm_name": {
+                    "type": "string",
+                    "description": "The Project Manager's name (e.g. 'John Smith')"
+                },
+                "active_only": {
+                    "type": "boolean",
+                    "description": "Whether to return only active jobs (default true)"
+                }
+            },
+            "required": ["pm_name"]
+        },
+        "executor": oa_get_jobs_by_pm,
+        "chat_toolbox": True,
+        "data_visualization": True,
+        "default_chart_type": "line",
+        "chart_config": {
+            "x_axis": "JobNumber",
+            "y_axis": "TotalHours",
+            "x_axis_label": "Job",
+            "y_axis_label": "Total Hours"
+        }
+    },
+    {
+        "name": "get_jobs_shipping_soon",
+        "description": "Get jobs shipping within a specified number of days. Useful for tracking upcoming deadlines.",
+        "category": "job_read",
+        "display_category": "Jobs",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "days_ahead": {
+                    "type": "integer",
+                    "description": "Number of days to look ahead (default 30)"
+                }
+            },
+            "required": []
+        },
+        "executor": oa_get_jobs_shipping_soon,
+        "chat_toolbox": True,
+        "data_visualization": True,
+        "default_chart_type": "line",
+        "chart_config": {
+            "x_axis": "JobNumber",
+            "y_axis": "DaysUntilShip",
+            "x_axis_label": "Job Number",
+            "y_axis_label": "Days Until Ship",
+        },
+    },
+    
+    # =========================================================================
     # Manager Reports (OT, Labor Costs, etc.)
     # =========================================================================
     {
         "name": "get_ot_hours_by_job",
         "description": "Get overtime hours for a specific job, broken down by employee. Shows who worked OT, total hours, and date ranges.",
         "category": "manager_reports",
+        "display_category": "Overtime",
         "parameters": {
             "type": "object",
             "properties": {
@@ -189,6 +304,7 @@ TOOL_REGISTRY: list[dict] = [
         "name": "get_ot_hours_all_jobs",
         "description": "Get overtime hours summary across all jobs. Shows total OT per job, employee counts, and date ranges.",
         "category": "manager_reports",
+        "display_category": "Overtime",
         "parameters": {
             "type": "object",
             "properties": {
@@ -216,12 +332,13 @@ TOOL_REGISTRY: list[dict] = [
     },
     
     # =========================================================================
-    # Memory Tools
+    # Memory Tools (AI-internal)
     # =========================================================================
     {
         "name": "search_user_memories",
         "description": "Search your memories about this user from past conversations. Use when the user references something from before, asks 'do you remember', or when historical context would help answer their question.",
         "category": "memory",
+        "display_category": "Memory",
         "parameters": {
             "type": "object",
             "properties": {
@@ -244,6 +361,7 @@ TOOL_REGISTRY: list[dict] = [
         "name": "save_user_memory",
         "description": "Save an important fact about the user to remember for future conversations. Use when you learn something significant like: their role, projects they're working on, preferences, skills, or important context. Be concise but specific.",
         "category": "memory",
+        "display_category": "Memory",
         "parameters": {
             "type": "object",
             "properties": {
@@ -265,12 +383,13 @@ TOOL_REGISTRY: list[dict] = [
     },
     
     # =========================================================================
-    # Conversation Tools
+    # Conversation Tools (AI-internal)
     # =========================================================================
     {
         "name": "search_conversations",
         "description": "Search past conversations by keyword. Searches titles, summaries, and message content. Returns ranked results with context snippets showing where matches occurred.",
         "category": "conversation",
+        "display_category": "Conversations",
         "parameters": {
             "type": "object",
             "properties": {
@@ -293,6 +412,7 @@ TOOL_REGISTRY: list[dict] = [
         "name": "get_recent_conversations",
         "description": "Get recent conversations by time window. Use for 'what did we discuss yesterday', 'conversations from last week', 'show me recent chats'.",
         "category": "conversation",
+        "display_category": "Conversations",
         "parameters": {
             "type": "object",
             "properties": {
@@ -315,6 +435,7 @@ TOOL_REGISTRY: list[dict] = [
         "name": "get_conversation_messages",
         "description": "Fetch full message history for a specific conversation. Use AFTER search_conversations or get_recent_conversations when you need complete context beyond the summary.",
         "category": "conversation",
+        "display_category": "Conversations",
         "parameters": {
             "type": "object",
             "properties": {
@@ -412,7 +533,7 @@ def get_chat_toolbox_tools(user_role: str) -> list[dict]:
         user_role: The user's role
         
     Returns:
-        List of tools in simplified format for UI
+        List of tools in simplified format for UI, with display_category for grouping
     """
     tools = []
     for tool in TOOL_REGISTRY:
@@ -430,6 +551,7 @@ def get_chat_toolbox_tools(user_role: str) -> list[dict]:
             "name": tool["name"],
             "description": tool["description"],
             "parameters": simple_params,
+            "display_category": tool.get("display_category", "Other"),
         }
         
         # Include data viz info if available (for potential charting)
@@ -453,7 +575,7 @@ def get_data_tools(user_role: str) -> list[dict]:
         user_role: The user's role
         
     Returns:
-        List of tools in simplified format for data page
+        List of tools in simplified format for data page, with display_category for grouping
     """
     tools = []
     for tool in TOOL_REGISTRY:
@@ -470,6 +592,7 @@ def get_data_tools(user_role: str) -> list[dict]:
             "name": tool["name"],
             "description": tool["description"],
             "parameters": simple_params,
+            "display_category": tool.get("display_category", "Other"),
             "default_chart_type": tool.get("default_chart_type", "table"),
         }
         

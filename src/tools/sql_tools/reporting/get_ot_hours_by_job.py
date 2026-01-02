@@ -46,7 +46,7 @@ def get_ot_hours_by_job(
         cursor = conn.cursor()
         
         cursor.execute(
-            "EXEC ScheduleShare.GetOTHoursByJob @JobNumber = ?, @StartDate = ?, @EndDate = ?",
+            "EXEC ScheduleShare.Toolbox_GetOTHoursByJob @JobNumber = ?, @StartDate = ?, @EndDate = ?",
             (job_number, start_date, end_date)
         )
         
