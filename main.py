@@ -3,25 +3,23 @@ load_dotenv()
 
 import os
 import json
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from src.api.lifespan import lifespan
+
 from src.utils._dataclasses_main.update_conversation_request import UpdateConversationRequest
 from src.utils._dataclasses_main.create_conversation_request import CreateConversationRequest
 
 from src.tools.org_tools.get_models import get_models
-from src.tools.sql_tools import close_mysql_pool, close_mssql_pool, close_voltron_pool
-from src.tools.local_mcp_tools.local_mcp_tool_definitions import TOOL_DEFINITIONS as tool_definitions
 from src.tools.tool_registry import get_chat_tools, get_chat_toolbox_tools, get_data_tools
 
 from src.tools.openai_chat.client import OpenAIClient
-from src.tools.openai_chat.handlers.openai_message_handler import OpenAIMessageHandler
+
 
 from src.tools.anthropic_chat.client import AnthropicClient
-from src.tools.anthropic_chat.handlers.anthropic_message_handler import AnthropicMessageHandler
 
 from src.tools.auth.azure_auth import azure_scheme
 from src.tools.auth import User, get_current_user, require_role, require_active_user
@@ -37,34 +35,6 @@ from src.data.instructions import Instructions
 from src.tools.state.state_handler import StateHandler
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Initialize all providers and router"""
-    try:
-        print("[STARTUP] Initializing application...")
-        print(f"[STARTUP] Azure Client ID: {os.getenv('AZURE_CLIENT_ID')}")
-        print(f"[STARTUP] Azure Tenant ID: {os.getenv('AZURE_TENANT_ID')}")
-
-        openai_client = OpenAIClient(api_key=os.getenv("OPENAI_API_KEY")).client
-        openai_message_handler = OpenAIMessageHandler(client=openai_client)
-
-        anthropic_client = AnthropicClient(api_key=os.getenv("ANTHROPIC_API_KEY")).client
-        anthropic_message_handler = AnthropicMessageHandler(client=anthropic_client)
-
-        # Store message handlers directly for endpoint access
-        app.state.openai_message_handler = openai_message_handler
-        app.state.anthropic_message_handler = anthropic_message_handler
-
-    except Exception as e:
-        print(f"Error initializing: {e}")
-        raise
-
-    yield
-
-    # Cleanup all pools on shutdown
-    close_mysql_pool()
-    close_mssql_pool()
-    close_voltron_pool()
 
 
 app = FastAPI(
@@ -78,6 +48,8 @@ app = FastAPI(
         "clientId": os.getenv("AZURE_CLIENT_ID"),
     },
 )
+
+
 
 # CORS middleware - allows WebUI to communicate with API
 app.add_middleware(
@@ -350,6 +322,7 @@ from src.utils.data_utils import (
     DataResultService, 
     DataExecutionService
 )
+from src.utils.artifact_utils import ArtifactService
 from src.utils._dataclasses_main.create_data_session_request import CreateDataSessionRequest
 from src.utils._dataclasses_main.update_data_session_request import UpdateDataSessionRequest
 
@@ -523,6 +496,125 @@ async def get_data_session_group(
         "group_id": group_id,
         "sessions": [s.to_dict() for s in sessions],
         "count": len(sessions)
+    }
+
+
+# =============================================================================
+# Artifact endpoints
+# =============================================================================
+
+
+@app.get("/artifacts/{artifact_id}")
+async def get_artifact(
+    artifact_id: str,
+    user: User = Depends(require_active_user)
+):
+    """
+    Get an artifact by ID.
+    
+    Returns artifact details including generation params and results summary.
+    """
+    artifact = ArtifactService.get_artifact(artifact_id, user.id)
+    
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    
+    return artifact.to_dict()
+
+
+@app.post("/artifacts/{artifact_id}/open")
+async def open_artifact(
+    artifact_id: str,
+    force_new: bool = False,
+    user: User = Depends(require_active_user)
+):
+    """
+    Open an artifact - creates or retrieves a DataSession and executes it.
+    
+    This is the click handler for artifact cards in chat.
+    
+    Flow:
+    1. If DataSession exists for this artifact (and not force_new), return it
+    2. Otherwise, create new DataSession from artifact recipe
+    3. Execute the tool immediately
+    4. Record artifact access (increment counter, update accessed_at)
+    
+    Args:
+        artifact_id: UUID of the artifact
+        force_new: If True, always create new session (for "Open in New Session")
+        user: User object for the current user
+
+    Returns:
+        session_id: ID of the DataSession to navigate to
+        is_new: Whether a new session was created
+    """
+    try:
+        result = ArtifactService.open_artifact(artifact_id, user.id, force_new)
+        
+        # If new session, execute it immediately
+        if result['is_new']:
+            try:
+                _data_execution_service.execute(result['session_id'], user.role)
+            except Exception as e:
+                # Log but don't fail - user can still see session and retry
+                print(f"[open_artifact] Auto-execute failed: {e}")
+        
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/conversations/{conversation_id}/artifacts")
+async def get_conversation_artifacts(
+    conversation_id: int,
+    user: User = Depends(require_active_user)
+):
+    """
+    Get all artifacts in a conversation.
+    
+    Returns artifacts in creation order (ASC).
+    """
+    # Verify conversation ownership
+    conversation = ConversationService.get_conversation(conversation_id, user.id)
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    artifacts = ArtifactService.list_artifacts_by_conversation(conversation_id, user.id)
+    
+    return {
+        "conversation_id": conversation_id,
+        "artifacts": [a.to_dict() for a in artifacts],
+        "count": len(artifacts)
+    }
+
+
+@app.get("/artifacts")
+async def list_user_artifacts(
+    artifact_type: str = None,
+    limit: int = 50,
+    offset: int = 0,
+    user: User = Depends(require_active_user)
+):
+    """
+    List all artifacts for the current user.
+    
+    Args:
+        artifact_type: Optional filter (data, word, excel, pdf, image)
+        limit: Max results (default 50)
+        offset: Pagination offset
+        
+    Returns artifacts in reverse creation order (newest first).
+    """
+    artifacts = ArtifactService.list_artifacts_by_user(
+        user_id=user.id,
+        artifact_type=artifact_type,
+        limit=limit,
+        offset=offset
+    )
+    
+    return {
+        "artifacts": [a.to_dict() for a in artifacts],
+        "count": len(artifacts)
     }
 
 

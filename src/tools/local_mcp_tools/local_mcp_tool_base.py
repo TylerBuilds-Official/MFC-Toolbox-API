@@ -11,6 +11,7 @@ from src.tools.local_mcp_tools.local_mcp_tool_getConversationMessages import oa_
 from src.tools.local_mcp_tools.local_mcp_tool_getActiveJobs import oa_get_active_jobs
 from src.tools.local_mcp_tools.local_mcp_tool_getJobsByPM import oa_get_jobs_by_pm
 from src.tools.local_mcp_tools.local_mcp_tool_getJobsShippingSoon import oa_get_jobs_shipping_soon
+from src.tools.local_mcp_tools.local_mcp_tool_createDataArtifact import oa_create_data_artifact
 
 
 # Import permission checking from centralized registry
@@ -45,6 +46,7 @@ class OAToolBase:
         'search_conversations': oa_search_conversations,
         'get_recent_conversations': oa_get_recent_conversations,
         'get_conversation_messages': oa_get_conversation_messages,
+        'create_data_artifact': oa_create_data_artifact,
     }
     
     # Tools that need user_id injected
@@ -54,11 +56,13 @@ class OAToolBase:
         'search_conversations',
         'get_recent_conversations',
         'get_conversation_messages',
+        'create_data_artifact',
     }
     
     # Tools that also need conversation_id injected
     CONVERSATION_ID_TOOLS = {
         'save_user_memory',
+        'create_data_artifact',
     }
 
     def dispatch(self, tool_name: str, context: dict = None, **kwargs):

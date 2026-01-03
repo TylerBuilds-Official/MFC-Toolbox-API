@@ -82,6 +82,26 @@ from src.tools.sql_tools.data_sessions.get_data_result import get_data_result, g
 
 
 # ============================================
+# Artifacts
+# ============================================
+
+from src.tools.sql_tools.artifacts.create_artifact import create_artifact
+from src.tools.sql_tools.artifacts.get_artifact import get_artifact
+from src.tools.sql_tools.artifacts.get_artifacts_by_user import get_artifacts_by_user
+from src.tools.sql_tools.artifacts.get_artifacts_by_conversation import get_artifacts_by_conversation
+from src.tools.sql_tools.artifacts.record_artifact_access import record_artifact_access
+from src.tools.sql_tools.artifacts.update_artifact import (
+    update_artifact_metadata,
+    update_artifact_status,
+    update_artifact_generation_results,
+)
+from src.tools.sql_tools.artifacts.create_data_session_from_artifact import (
+    create_data_session_from_artifact,
+    get_existing_session_for_artifact,
+)
+
+
+# ============================================
 # Reporting (Voltron / MySQL)
 # ============================================
 
@@ -155,6 +175,18 @@ __all__ = [
     "get_data_result",
     "get_data_results_for_session",
     "check_session_has_results",
+    
+    # Artifacts
+    "create_artifact",
+    "get_artifact",
+    "get_artifacts_by_user",
+    "get_artifacts_by_conversation",
+    "record_artifact_access",
+    "update_artifact_metadata",
+    "update_artifact_status",
+    "update_artifact_generation_results",
+    "create_data_session_from_artifact",
+    "get_existing_session_for_artifact",
     
     # Reporting
     "get_jobs",

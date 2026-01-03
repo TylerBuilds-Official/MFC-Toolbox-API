@@ -40,6 +40,7 @@ TOOL_CATEGORIES = {
     "admin_tools": "admin",    # System administration
     "memory": "user",          # Memory tools (search/save memories)
     "conversation": "user",    # Conversation tools (search/retrieve past conversations)
+    "artifacts": "user",       # Artifact creation tools
 }
 
 
@@ -61,6 +62,7 @@ from src.tools.local_mcp_tools.local_mcp_tool_saveUserMemory import oa_save_user
 from src.tools.local_mcp_tools.local_mcp_tool_searchConversations import oa_search_conversations
 from src.tools.local_mcp_tools.local_mcp_tool_getRecentConversations import oa_get_recent_conversations
 from src.tools.local_mcp_tools.local_mcp_tool_getConversationMessages import oa_get_conversation_messages
+from src.tools.local_mcp_tools.local_mcp_tool_createDataArtifact import oa_create_data_artifact
 
 
 TOOL_REGISTRY: list[dict] = [
@@ -427,6 +429,42 @@ TOOL_REGISTRY: list[dict] = [
             "required": ["conversation_id"]
         },
         "executor": oa_get_conversation_messages,
+        "chat_toolbox": False,  # AI-internal tool
+        "data_visualization": False,
+    },
+    
+    # =========================================================================
+    # Artifact Tools (AI-internal)
+    # =========================================================================
+    {
+        "name": "create_data_artifact",
+        "description": "Create a clickable data visualization card in the chat response. Use this when the user asks for data that would benefit from interactive visualization - job info, production reports, overtime summaries, etc. The artifact appears as a card the user can click to open a full data visualization page.",
+        "category": "artifacts",
+        "display_category": "Artifacts",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "target_tool": {
+                    "type": "string",
+                    "description": "The data tool to use (e.g., 'get_job_info', 'get_machine_production', 'get_ot_hours_by_job')"
+                },
+                "tool_params": {
+                    "type": "object",
+                    "description": "Parameters for the tool (e.g., {'job_number': '6516'})"
+                },
+                "chart_type": {
+                    "type": "string",
+                    "enum": ["bar", "line", "pie", "table", "card"],
+                    "description": "Suggested visualization type (optional - uses tool default if not specified)"
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Custom title for the artifact card (optional - auto-generated if not provided)"
+                }
+            },
+            "required": ["target_tool"]
+        },
+        "executor": oa_create_data_artifact,
         "chat_toolbox": False,  # AI-internal tool
         "data_visualization": False,
     },
