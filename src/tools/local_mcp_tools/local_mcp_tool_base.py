@@ -9,7 +9,6 @@ from src.tools.local_mcp_tools.local_mcp_tool_searchConversations import oa_sear
 from src.tools.local_mcp_tools.local_mcp_tool_getRecentConversations import oa_get_recent_conversations
 from src.tools.local_mcp_tools.local_mcp_tool_getConversationMessages import oa_get_conversation_messages
 from src.tools.local_mcp_tools.local_mcp_tool_getActiveJobs import oa_get_active_jobs
-from src.tools.local_mcp_tools.local_mcp_tool_getJobDetails import oa_get_job_details
 from src.tools.local_mcp_tools.local_mcp_tool_getJobsByPM import oa_get_jobs_by_pm
 from src.tools.local_mcp_tools.local_mcp_tool_getJobsShippingSoon import oa_get_jobs_shipping_soon
 
@@ -34,7 +33,10 @@ class OAToolBase:
         'get_ot_hours_all_jobs': oa_get_ot_hours_all_jobs,
         'search_user_memories': oa_search_user_memories,
         'get_active_jobs': oa_get_active_jobs,
-        'get_job_details': oa_get_job_details,
+
+        # REMOVED:
+        # 'get_job_details': oa_get_job_details,
+
         'get_jobs_by_pm': oa_get_jobs_by_pm,
         "get_jobs_shipping_soon": oa_get_jobs_shipping_soon,
 

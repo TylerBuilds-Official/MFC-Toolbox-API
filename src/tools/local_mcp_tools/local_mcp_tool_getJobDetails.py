@@ -1,4 +1,12 @@
-from src.tools.sql_tools import get_job_details
+
+
+
+
+
+# REMOVED: Deprecated and consolidated to - get_job_info()
+
+
+# from src.tools.sql_tools import get_job_details
 
 
 def oa_get_job_details(job_number: str):

@@ -53,7 +53,7 @@ from src.tools.local_mcp_tools.local_mcp_tool_getMachineProductionData import oa
 from src.tools.local_mcp_tools.local_mcp_tool_getOTHoursByJob import oa_get_ot_hours_by_job
 from src.tools.local_mcp_tools.local_mcp_tool_getOTHoursAllJobs import oa_get_ot_hours_all_jobs
 from src.tools.local_mcp_tools.local_mcp_tool_getActiveJobs import oa_get_active_jobs
-from src.tools.local_mcp_tools.local_mcp_tool_getJobDetails import oa_get_job_details
+# REMOVED: from src.tools.local_mcp_tools.local_mcp_tool_getJobDetails import oa_get_job_details
 from src.tools.local_mcp_tools.local_mcp_tool_getJobsByPM import oa_get_jobs_by_pm
 from src.tools.local_mcp_tools.local_mcp_tool_getJobsShippingSoon import oa_get_jobs_shipping_soon
 from src.tools.local_mcp_tools.local_mcp_tool_searchUserMemories import oa_search_user_memories
@@ -94,7 +94,7 @@ TOOL_REGISTRY: list[dict] = [
     {
         # Identity
         "name": "get_job_info",
-        "description": "Get detailed information about a specific job by job number.",
+        "description": "Get comprehensive job information including hours, dates, financials, production data (pieces/weight), and status. Merges data from Tekla and ScheduleShare.",
         
         # Permissions
         "category": "job_read",
@@ -118,10 +118,9 @@ TOOL_REGISTRY: list[dict] = [
         "executor": oa_get_job_info,
         
         # Visibility
-        "chat_toolbox": True,
+        "chat_toolbox":       True,
         "data_visualization": True,
         "default_chart_type": "card",
-        "normalizer": "single_job",
     },
     {
         # Identity
@@ -186,26 +185,7 @@ TOOL_REGISTRY: list[dict] = [
         "data_visualization": True,
         "default_chart_type": "table",
     },
-    {
-        "name": "get_job_details",
-        "description": "Get comprehensive details for a specific job from ScheduleShare by job number.",
-        "category": "job_read",
-        "display_category": "Jobs",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "job_number": {
-                    "type": "string",
-                    "description": "The job number to retrieve details for (e.g. '6516')"
-                }
-            },
-            "required": ["job_number"]
-        },
-        "executor": oa_get_job_details,
-        "chat_toolbox": True,
-        "data_visualization": True,
-        "default_chart_type": "card",
-    },
+    # REMOVED: get_job_details - consolidated into get_job_info
     {
         "name": "get_jobs_by_pm",
         "description": "Get all jobs for a specific Project Manager from ScheduleShare.",

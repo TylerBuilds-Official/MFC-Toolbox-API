@@ -123,47 +123,55 @@ class ToolNormalizer:
         """
         Normalizes get_job_info output (single job detail).
         
-        Input shape: {job_number: {field: value, ...}, ...}
-        Output: Two-column table (Field, Value) for detail view
+        Input shape: Flat dict {field: value, ...}
+        Output: Horizontal table (columns = field names, single row of values)
+        
+        This format works well with the DataDetailCard component.
         """
-        if not raw_result or isinstance(raw_result, dict) and "message" in raw_result:
+        if not raw_result:
             return NormalizedResult.empty()
         
-        # get_job_info returns {job_number: {data}}, so we need to extract the inner dict
-        # Get the first (and likely only) job data
-        if raw_result:
-            first_key = next(iter(raw_result.keys()))
-            job_data = raw_result[first_key]
-            if isinstance(job_data, dict):
-                raw_result = job_data
+        # Handle error responses
+        if isinstance(raw_result, dict) and "error" in raw_result:
+            return NormalizedResult(
+                columns=["Error"],
+                rows=[[self._serialize_value(raw_result["error"])]],
+                row_count=1,
+                meta={"type": "error"}
+            )
         
-        # For single job, create Field/Value pairs
-        columns = ["Field", "Value"]
-        rows = []
+        if isinstance(raw_result, dict) and "message" in raw_result:
+            return NormalizedResult(
+                columns=["Message"],
+                rows=[[self._serialize_value(raw_result["message"])]],
+                row_count=1,
+                meta={"type": "message"}
+            )
         
-        # Define preferred field order
+        # Define preferred field order for display
         preferred_order = [
-            'JobNumber', 'JobName', 'Contractor', 'ContractorContact',
-            'Location', 'StartDate', 'TotalItems', 'TotalWeight'
+            'JobNumber', 'JobName', 'Status',
+            'ProjectManager', 'Detailer', 'Erector', 'GeneralContractor',
+            'StartDate', 'TargetDelivery', 'ErectDate',
+            'HoursUsed', 'HoursRemaining', 'TotalHours',
+            'TotalPieces', 'TotalWeight', 'WeightShipped',
+            'ContractAmount', 'CostsToDate',
+            'SteelStatus', 'Notes',
         ]
         
-        # Add preferred fields first
-        added_keys = set()
-        for key in preferred_order:
-            if key in raw_result:
-                rows.append([key, self._serialize_value(raw_result[key])])
-                added_keys.add(key)
+        # Build columns: preferred order first, then any remaining fields
+        columns = [k for k in preferred_order if k in raw_result]
+        remaining = [k for k in raw_result.keys() if k not in columns]
+        columns.extend(sorted(remaining))
         
-        # Add remaining fields alphabetically
-        for key in sorted(raw_result.keys()):
-            if key not in added_keys:
-                rows.append([key, self._serialize_value(raw_result[key])])
+        # Build single row of values
+        row = [self._serialize_value(raw_result.get(col)) for col in columns]
         
         return NormalizedResult(
             columns=columns,
-            rows=rows,
-            row_count=len(rows),
-            meta={"source_tool": "get_job_info", "view_type": "detail"}
+            rows=[row],
+            row_count=1,
+            meta={"source_tool": "get_job_info", "view_type": "card"}
         )
 
     def _normalize_generic(self, raw_result: Any) -> NormalizedResult:
