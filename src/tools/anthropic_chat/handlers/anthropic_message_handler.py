@@ -29,8 +29,10 @@ class AnthropicMessageHandler:
         message: str, 
         history: list = None,
         model: str = "claude-sonnet-4-5-20250929",
+        enable_thinking: bool = False,
+        thinking_budget: int = 10000,
         tool_context: dict = None
-    ) -> str:
+    ) -> tuple[str, str | None]:
         """
         Send a message to Anthropic and return the assistant's response.
         
@@ -39,10 +41,12 @@ class AnthropicMessageHandler:
             message: Current user message  
             history: Optional list of previous messages
             model: Anthropic model to use
+            enable_thinking: Whether to enable extended thinking
+            thinking_budget: Token budget for thinking (if enabled)
             tool_context: Server-side context for tools (user_id, conversation_id)
             
         Returns:
-            The assistant's response text
+            Tuple of (response_text, thinking_content)
         """
         if history is None:
             history = []
@@ -57,18 +61,55 @@ class AnthropicMessageHandler:
         user_role = tool_context.get("user_role", "pending") if tool_context else "pending"
         filtered_tools = get_chat_tools(user_role)
 
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=4096,
-            system=instructions,
-            messages=messages,
-            tools=self._convert_tools_to_ant_format(filtered_tools)
-        )
+        # Build API parameters
+        params = {
+            "model": self.model,
+            "max_tokens": 8192,
+            "system": instructions,
+            "messages": messages,
+            "tools": self._convert_tools_to_ant_format(filtered_tools)
+        }
 
-        while response.stop_reason == "tool_use":
+        # Add extended thinking if enabled
+        if enable_thinking:
+            params["thinking"] = {
+                "type": "enabled",
+                "budget_tokens": thinking_budget
+            }
+            params["max_tokens"] = thinking_budget + 8000
+
+        response = self.client.messages.create(**params)
+        max_tool_rounds = 10
+        tool_round = 0
+
+        while response.stop_reason == "tool_use" and tool_round < max_tool_rounds:
+            tool_round += 1
+            
+            # Build assistant content preserving thinking blocks with signatures
+            assistant_content = []
+            for block in response.content:
+                if block.type == "thinking":
+                    assistant_content.append({
+                        "type": "thinking",
+                        "thinking": block.thinking,
+                        "signature": block.signature
+                    })
+                elif block.type == "text":
+                    assistant_content.append({
+                        "type": "text",
+                        "text": block.text
+                    })
+                elif block.type == "tool_use":
+                    assistant_content.append({
+                        "type": "tool_use",
+                        "id": block.id,
+                        "name": block.name,
+                        "input": block.input
+                    })
+
             messages.append({
                 "role": "assistant",
-                "content": response.content
+                "content": assistant_content
             })
 
             tool_results = []
@@ -86,19 +127,21 @@ class AnthropicMessageHandler:
                 "content": tool_results
             })
 
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=4096,
-                system=instructions,
-                messages=messages,
-                tools=self._convert_tools_to_ant_format(filtered_tools)
-            )
+            response = self.client.messages.create(**params | {"messages": messages})
 
+        # Extract text content
         text_content = next(
-            (block.text for block in response.content if hasattr(block, "text")),
+            (block.text for block in response.content if hasattr(block, "text") and block.type == "text"),
             ""
         )
-        return text_content
+        
+        # Extract thinking content if present
+        thinking_content = next(
+            (block.thinking for block in response.content if hasattr(block, "thinking") and block.type == "thinking"),
+            None
+        )
+        
+        return text_content, thinking_content
 
     # =========================================================================
     # Streaming Handler
@@ -209,12 +252,14 @@ class AnthropicMessageHandler:
             }
 
             # Add extended thinking if enabled
+            # TODO: Adjust thinking budget availability per permission level
             if enable_thinking:
                 params["thinking"] = {
                     "type": "enabled",
                     "budget_tokens": thinking_budget
                 }
-                params["max_tokens"] = 16000  # Need more for thinking
+                # max_tokens must be greater than thinking budget
+                params["max_tokens"] = thinking_budget + 8000
 
             # Track current block type and tool uses
             current_block_type = None

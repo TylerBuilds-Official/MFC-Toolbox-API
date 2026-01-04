@@ -6,8 +6,7 @@ Returns artifact ID for embedding in the response.
 """
 from src.utils.artifact_utils import (
     ArtifactService,
-    ArtifactGenerationParams,
-    ArtifactGenerationResults,
+    ArtifactGenerationParams
 )
 
 
@@ -27,16 +26,57 @@ def oa_create_data_artifact(
     
     Args:
         target_tool: The data tool to execute (e.g., 'get_job_info', 'get_machine_production')
-        tool_params: Parameters for the tool (e.g., {'job_number': '6516'})
+        tool_params: A flat dictionary mapping parameter names directly to their values.
+                     Format: {"param_name": value, ...}
+                     Examples:
+                       - {"job_number": "6516"}
+                       - {"days_back": 30}
+                       - {"pm_name": "John Smith", "active_only": true}
+                     Do NOT use nested structures like {"key": "...", "value": "..."}.
+
         chart_type: Suggested visualization type (bar, line, pie, table, card)
         title: Optional custom title (auto-generated if not provided)
         job_number: Job number for traceability (extracted from params if not provided)
-        
+
     Returns:
         Dict with artifact_id and suggested embed marker
+
+
+    Example hinting for data visualization calls:
+
+        json {
+          "target_tool": "get_machine_production",
+          "tool_params": {
+            "days_back": 60
+        },
+          "chart_type": "line",
+          "title": "60-Day Machine Production"
+        }
+
+    Or for overtime by job:
+
+        json {
+          "target_tool": "get_ot_hours_by_job",
+          "tool_params": {
+            "job_number": "6516",
+            "start_date": "2025-01-01",
+            "end_date": "2025-01-31"
+          },
+          "chart_type": "bar",
+          "title": "Job 6516 January Overtime"
+        }
+
+
     """
     if not user_id or not conversation_id:
         return {"error": "Missing context (user_id or conversation_id)"}
+
+    # Defensive: Handle malformed tool_params from confused models
+    # Expected: {"param_name": value} e.g. {"days_back": 30}
+    # Malformed: {"key": "param_name", "value": value, ...}
+    if tool_params and isinstance(tool_params, dict):
+        if 'key' in tool_params and 'value' in tool_params:
+            tool_params = {tool_params['key']: tool_params['value']}
 
     from src.tools.tool_registry import get_tool
     # Validate tool exists and is data-visualizable

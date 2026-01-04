@@ -450,7 +450,7 @@ TOOL_REGISTRY: list[dict] = [
                 },
                 "tool_params": {
                     "type": "object",
-                    "description": "Parameters for the tool (e.g., {'job_number': '6516'})"
+                    "description": "A flat dict mapping parameter names to values. Example: {'job_number': '6516'} or {'days_back': 30}. Do NOT use nested key/value structures."
                 },
                 "chart_type": {
                     "type": "string",

@@ -38,6 +38,7 @@ from src.tools.sql_tools.messages.add_message import add_message
 from src.tools.sql_tools.messages.get_message import get_message
 from src.tools.sql_tools.messages.get_messages import get_messages
 from src.tools.sql_tools.messages.admin_delete_messages import admin_delete_messages_for_conversation
+from src.tools.sql_tools.messages.update_message_artifact import update_message_artifact
 
 
 # ============================================
@@ -99,6 +100,7 @@ from src.tools.sql_tools.artifacts.create_data_session_from_artifact import (
     create_data_session_from_artifact,
     get_existing_session_for_artifact,
 )
+from src.tools.sql_tools.artifacts.link_artifacts_to_message import link_artifacts_to_message
 
 
 # ============================================
@@ -146,6 +148,7 @@ __all__ = [
     "get_message",
     "get_messages",
     "admin_delete_messages_for_conversation",
+    "update_message_artifact",
     
     # Conversation State
     "get_conversation_state",
@@ -187,6 +190,7 @@ __all__ = [
     "update_artifact_generation_results",
     "create_data_session_from_artifact",
     "get_existing_session_for_artifact",
+    "link_artifacts_to_message",
     
     # Reporting
     "get_jobs",

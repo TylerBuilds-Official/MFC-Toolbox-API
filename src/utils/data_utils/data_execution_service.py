@@ -157,6 +157,13 @@ class DataExecutionService:
         if executor is None:
             raise ValueError(f"No executor found for tool: {tool_name}")
         
+        # Defensive: Handle malformed tool_params from confused models
+        # Expected: {"param_name": value} e.g. {"days_back": 30}
+        # Malformed: {"key": "param_name", "value": value, ...}
+        if tool_params and isinstance(tool_params, dict):
+            if 'key' in tool_params and 'value' in tool_params:
+                tool_params = {tool_params['key']: tool_params['value']}
+        
         # Call executor with params if it accepts them
         if tool_params:
             return executor(**tool_params)

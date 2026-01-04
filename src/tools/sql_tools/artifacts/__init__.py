@@ -18,6 +18,7 @@ from src.tools.sql_tools.artifacts.create_data_session_from_artifact import (
     create_data_session_from_artifact,
     get_existing_session_for_artifact,
 )
+from src.tools.sql_tools.artifacts.link_artifacts_to_message import link_artifacts_to_message
 
 
 __all__ = [
@@ -31,4 +32,5 @@ __all__ = [
     'update_artifact_generation_results',
     'create_data_session_from_artifact',
     'get_existing_session_for_artifact',
+    'link_artifacts_to_message',
 ]

@@ -33,6 +33,7 @@ def create_artifact(
         
     Returns:
         Dictionary with all artifact fields including the new UUID Id.
+
     """
     params_json  = json.dumps(generation_params) if generation_params else None
     results_json = json.dumps(generation_results) if generation_results else None

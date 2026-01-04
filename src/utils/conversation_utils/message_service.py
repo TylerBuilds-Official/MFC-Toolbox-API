@@ -1,4 +1,5 @@
-from src.tools.sql_tools import (get_messages, add_message, get_message)
+from src.tools.sql_tools import (get_messages, add_message, get_message, 
+                                 update_message_artifact, link_artifacts_to_message)
 from src.utils.conversation_utils.message import Message
 
 
@@ -71,3 +72,25 @@ class MessageService:
                 thinking=message.get("thinking")
             )
         for message in messages_data]
+
+    @staticmethod
+    def link_artifacts(conversation_id: int, message_id: int) -> list[str]:
+        """
+        Links any orphaned artifacts in the conversation to the specified message.
+        Also updates the message with the first artifact_id found.
+        
+        Args:
+            conversation_id: The conversation to search for orphaned artifacts
+            message_id: The message ID to link artifacts to
+            
+        Returns:
+            List of artifact IDs that were linked
+        """
+        # Link orphaned artifacts to this message
+        artifact_ids = link_artifacts_to_message(conversation_id, message_id)
+        
+        # If any artifacts were linked, update the message with the first one
+        if artifact_ids:
+            update_message_artifact(message_id, artifact_ids[0])
+        
+        return artifact_ids
