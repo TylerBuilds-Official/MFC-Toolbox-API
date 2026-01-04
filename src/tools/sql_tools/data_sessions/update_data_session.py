@@ -23,7 +23,7 @@ def update_data_session(session_id: int, user_id: int, updates: dict) -> bool:
     Returns:
         True if update succeeded, False if session not found or not owned by user.
     """
-    allowed_fields = {'status', 'error_message', 'visualization_config', 'tool_params'}
+    allowed_fields = {'status', 'error_message', 'visualization_config', 'tool_params', 'title'}
     
     # Filter to only allowed fields
     filtered_updates = {k: v for k, v in updates.items() if k in allowed_fields}
@@ -53,7 +53,7 @@ def update_data_session(session_id: int, user_id: int, updates: dict) -> bool:
     query = f"""
         UPDATE {SCHEMA}.DataSessions
         SET {', '.join(set_clauses)}
-        WHERE Id = ? AND UserId = ?
+        WHERE Id = ? AND UserId = ? AND IsActive = 1
     """
     
     with get_mssql_connection() as conn:
@@ -88,9 +88,37 @@ def update_data_session_status(
             f"""
             UPDATE {SCHEMA}.DataSessions
             SET Status = ?, ErrorMessage = ?, UpdatedAt = GETDATE()
-            WHERE Id = ?
+            WHERE Id = ? AND IsActive = 1
             """,
             (status, error_message, session_id)
+        )
+        rows_affected = cursor.rowcount
+        cursor.close()
+        
+        return rows_affected > 0
+
+
+def update_data_session_title(session_id: int, title: str) -> bool:
+    """
+    Updates the title for a data session.
+    Does NOT verify user ownership - use for internal title generation.
+    
+    Args:
+        session_id: The session ID
+        title: The generated title
+        
+    Returns:
+        True if update succeeded.
+    """
+    with get_mssql_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""
+            UPDATE {SCHEMA}.DataSessions
+            SET Title = ?, UpdatedAt = GETDATE()
+            WHERE Id = ? AND IsActive = 1
+            """,
+            (title, session_id)
         )
         rows_affected = cursor.rowcount
         cursor.close()

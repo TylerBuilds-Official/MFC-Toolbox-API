@@ -11,7 +11,7 @@ from src.tools.anthropic_chat.client import AnthropicClient
 from src.tools.auth import User, require_active_user
 from src.utils.settings_utils import UserSettingsService
 from src.utils.conversation_utils import ConversationService, MessageService
-from src.utils.conversation_utils.summary_helper import SummaryHelper
+from src.utils.conversation_utils.summary_helper import ConversationSummaryHelper
 from src.utils.memory_utils import MemoryService
 from src.utils.conversation_state_utils import ConversationStateService
 from src.data.model_capabilities import get_capabilities, get_provider
@@ -182,17 +182,17 @@ async def chat(message: str, model: str = None,
 
         generated_title = None
         if is_new_conversation:
-            generated_title = SummaryHelper.generate_title(message, client=client, provider=provider)
+            generated_title = ConversationSummaryHelper.generate_title(message, client=client, provider=provider)
             conversation = ConversationService.update_conversation(conversation_id, user.id, {"title": generated_title})
 
         messages = MessageService.get_messages(conversation_id)
         message_count = len(messages)
 
-        preview = SummaryHelper.get_last_message_preview(messages, max_length=100)
+        preview = ConversationSummaryHelper.get_last_message_preview(messages, max_length=100)
         ConversationService.update_conversation(conversation_id, user.id, {"last_message_preview": preview})
 
-        if SummaryHelper.should_update_summary(message_count):
-            new_summary = SummaryHelper.build_summary(messages, client=client, provider=provider)
+        if ConversationSummaryHelper.should_update_summary(message_count):
+            new_summary = ConversationSummaryHelper.build_summary(messages, client=client, provider=provider)
             ConversationService.update_conversation(conversation_id, user.id, {"summary": new_summary})
 
         # =================================================================
@@ -359,18 +359,18 @@ async def chat_stream(
             # Update title if new conversation
             generated_title = None
             if is_new_conversation:
-                generated_title = SummaryHelper.generate_title(message, client=client, provider=provider)
+                generated_title = ConversationSummaryHelper.generate_title(message, client=client, provider=provider)
                 ConversationService.update_conversation(conversation_id, user.id, {"title": generated_title})
 
             # Update preview and summary
             messages = MessageService.get_messages(conversation_id)
             message_count = len(messages)
             
-            preview = SummaryHelper.get_last_message_preview(messages, max_length=100)
+            preview = ConversationSummaryHelper.get_last_message_preview(messages, max_length=100)
             ConversationService.update_conversation(conversation_id, user.id, {"last_message_preview": preview})
 
-            if SummaryHelper.should_update_summary(message_count):
-                new_summary = SummaryHelper.build_summary(messages, client=client, provider=provider)
+            if ConversationSummaryHelper.should_update_summary(message_count):
+                new_summary = ConversationSummaryHelper.build_summary(messages, client=client, provider=provider)
                 ConversationService.update_conversation(conversation_id, user.id, {"summary": new_summary})
 
             # Update and save conversation state

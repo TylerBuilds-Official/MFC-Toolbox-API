@@ -35,6 +35,20 @@ async def create_data_session(body: CreateDataSessionRequest,
     return session.to_dict()
 
 
+@router.delete("/data/sessions/{session_id}")
+async def delete_data_session(session_id: int,
+                              user: User = Depends(require_active_user)):
+
+    """ Delete a data session """
+
+    success = DataSessionService.delete_session(session_id, user.id)
+
+    if not success:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return {"success": True, "message": "Session deleted"}
+
+
 @router.get("/data/sessions")
 async def list_data_sessions(limit: int = 50, offset: int = 0,
                              tool_name: str = None, status: str = None,
@@ -92,6 +106,20 @@ async def update_data_session(session_id: int, body: UpdateDataSessionRequest,
         raise HTTPException(status_code=404, detail="Session not found")
 
     return session.to_dict()
+
+
+@router.delete("/data/sessions/{session_id}")
+async def delete_data_session(session_id: int,
+                              user: User = Depends(require_active_user)):
+
+    """Soft delete a data session (sets IsActive = 0)."""
+
+    success = DataSessionService.delete_session(session_id, user.id)
+
+    if not success:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return {"success": True, "message": "Session deleted"}
 
 
 @router.post("/data/sessions/{session_id}/execute")

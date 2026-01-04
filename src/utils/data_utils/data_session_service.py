@@ -5,7 +5,8 @@ Service layer for DataSession operations.
 from src.tools.sql_tools import (create_data_session, get_data_session,
                                  get_data_sessions_list, get_data_sessions_by_group,
                                  update_data_session, update_data_session_status,
-                                 check_session_has_results)
+                                 update_data_session_title, check_session_has_results,
+                                 soft_delete_data_session)
 
 from src.utils.data_utils.data_session import DataSession, VisualizationConfig
 
@@ -115,6 +116,20 @@ class DataSessionService:
         return DataSessionService.get_session(session_id, user_id)
 
     @staticmethod
+    def delete_session(session_id: int, user_id: int) -> bool:
+        """
+        Soft deletes a session by setting IsActive = 0.
+        
+        Args:
+            session_id: The session ID
+            user_id: User ID for ownership verification
+            
+        Returns:
+            True if delete succeeded, False if not found/not owned
+        """
+        return soft_delete_data_session(session_id, user_id)
+
+    @staticmethod
     def set_status(session_id: int, status: str, error_message: str = None) -> bool:
         """
         Updates session status (internal use, no user verification).
@@ -128,6 +143,20 @@ class DataSessionService:
             True if update succeeded
         """
         return update_data_session_status(session_id, status, error_message)
+
+    @staticmethod
+    def set_title(session_id: int, title: str) -> bool:
+        """
+        Updates session title (internal use, no user verification).
+        
+        Args:
+            session_id: The session ID
+            title: The generated title
+            
+        Returns:
+            True if update succeeded
+        """
+        return update_data_session_title(session_id, title)
 
     @staticmethod
     def get_session_with_has_results(session_id: int, user_id: int = None) -> dict | None:
@@ -166,4 +195,5 @@ class DataSessionService:
             error_message=data.get('error_message'),
             created_at=data['created_at'],
             updated_at=data['updated_at'],
+            title=data.get('title'),
         )

@@ -12,7 +12,9 @@ from src.tools.sql_tools.data_sessions.get_data_sessions_list import (
 from src.tools.sql_tools.data_sessions.update_data_session import (
     update_data_session,
     update_data_session_status,
+    update_data_session_title,
 )
+from src.tools.sql_tools.data_sessions.soft_delete_data_session import soft_delete_data_session
 from src.tools.sql_tools.data_sessions.create_data_result import create_data_result
 from src.tools.sql_tools.data_sessions.get_data_result import (
     get_data_result,
@@ -28,6 +30,8 @@ __all__ = [
     "get_data_sessions_by_group",
     "update_data_session",
     "update_data_session_status",
+    "update_data_session_title",
+    "soft_delete_data_session",
     # Results
     "create_data_result",
     "get_data_result",

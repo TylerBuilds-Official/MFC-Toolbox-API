@@ -31,9 +31,9 @@ def get_data_sessions_list(
         query = f"""
             SELECT Id, UserId, MessageId, SessionGroupId, ParentSessionId,
                    ToolName, ToolParams, VisualizationConfig, Status, 
-                   ErrorMessage, CreatedAt, UpdatedAt
+                   ErrorMessage, CreatedAt, UpdatedAt, Title
             FROM {SCHEMA}.DataSessions
-            WHERE UserId = ?
+            WHERE UserId = ? AND IsActive = 1
         """
         params = [user_id]
         
@@ -67,6 +67,7 @@ def get_data_sessions_list(
                 'error_message': row[9],
                 'created_at': row[10],
                 'updated_at': row[11],
+                'title': row[12],
             })
         
         return sessions
@@ -89,9 +90,9 @@ def get_data_sessions_by_group(group_id: int, user_id: int = None) -> list[dict]
         query = f"""
             SELECT Id, UserId, MessageId, SessionGroupId, ParentSessionId,
                    ToolName, ToolParams, VisualizationConfig, Status, 
-                   ErrorMessage, CreatedAt, UpdatedAt
+                   ErrorMessage, CreatedAt, UpdatedAt, Title
             FROM {SCHEMA}.DataSessions
-            WHERE SessionGroupId = ?
+            WHERE SessionGroupId = ? AND IsActive = 1
         """
         params = [group_id]
         
@@ -120,6 +121,7 @@ def get_data_sessions_by_group(group_id: int, user_id: int = None) -> list[dict]
                 'error_message': row[9],
                 'created_at': row[10],
                 'updated_at': row[11],
+                'title': row[12],
             })
         
         return sessions

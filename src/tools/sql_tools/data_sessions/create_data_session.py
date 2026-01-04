@@ -97,4 +97,5 @@ def create_data_session(
         'error_message': row[9],
         'created_at': row[10],
         'updated_at': row[11],
+        'title': None,  # Title is generated after execution
     }

@@ -1,6 +1,6 @@
 
 
-class SummaryHelper:
+class ConversationSummaryHelper:
 
     @staticmethod
     def should_update_summary(message_count: int, interval: int = 3) -> bool:
@@ -57,7 +57,7 @@ class SummaryHelper:
                 return response.content[0].text.strip()[:50]
 
         except Exception as e:
-            print(f"[SummaryHelper] Title generation failed: {e}")
+            print(f"[ConversationSummaryHelper] Title generation failed: {e}")
 
         # Fallback: truncate first message
         return first_message[:40] + "..." if len(first_message) > 40 else first_message
@@ -88,7 +88,7 @@ class SummaryHelper:
                 return reponse.content[0].text.strip()
 
         except Exception as e:
-            print(f"[SummaryHelper] AI Summary Failed: {e}")
+            print(f"[ConversationSummaryHelper] AI Summary Failed: {e}")
             lines = formatted_messages.strip().split('\n')
             if lines:
                 last_line = lines[-1]
@@ -99,8 +99,8 @@ class SummaryHelper:
 
     @staticmethod
     def build_summary(messages, client, provider: str = "openai"):
-        summary = SummaryHelper.format_messages_for_summary(messages)
-        ai_summary = SummaryHelper.ai_summary(summary, client=client, provider=provider)
+        summary = ConversationSummaryHelper.format_messages_for_summary(messages)
+        ai_summary = ConversationSummaryHelper.ai_summary(summary, client=client, provider=provider)
         return f"Summary:\n    {ai_summary}"
 
 

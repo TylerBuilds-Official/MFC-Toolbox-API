@@ -6,13 +6,17 @@ This is the central service that ties together:
 - Result normalization
 - Database storage
 - Status management
+- Title generation (AI-powered)
 """
+import os
 from typing import Any
 from src.utils.data_utils.data_session_service import DataSessionService
 from src.utils.data_utils.data_result_service import DataResultService
 from src.utils.data_utils.tool_normalizer import ToolNormalizer
 from src.utils.data_utils.data_session import DataSession
 from src.utils.data_utils.data_result import DataResult, NormalizedResult
+from src.utils.data_utils.summary_helper import DataSummaryHelper
+from src.tools.openai_chat.client import OpenAIClient
 
 # Import from centralized registry
 from src.tools.tool_registry import (
@@ -34,6 +38,9 @@ class DataExecutionService:
     
     def __init__(self):
         self.normalizer = ToolNormalizer()
+        # Initialize OpenAI client for title generation
+        api_key = os.getenv("OPENAI_API_KEY")
+        self._openai_client = OpenAIClient(api_key=api_key).client if api_key else None
 
     def execute(
         self, 
@@ -93,6 +100,9 @@ class DataExecutionService:
             
             # Update status to success
             DataSessionService.set_status(session_id, "success")
+            
+            # Generate title using AI
+            self._generate_and_save_title(session, result)
             
             # Return updated session and result
             updated_session = DataSessionService.get_session(session_id)
@@ -182,3 +192,40 @@ class DataExecutionService:
             List of tool definitions for data page
         """
         return get_data_tools(user_role)
+
+    def _generate_and_save_title(self, session: DataSession, result: DataResult) -> None:
+        """
+        Generates an AI-powered title for the session and saves it.
+        Fails silently if title generation fails.
+        
+        Args:
+            session: The data session
+            result: The execution result
+        """
+        if not self._openai_client:
+            print("[DataExecutionService] No OpenAI client available for title generation")
+            return
+        
+        try:
+            # Build session dict for title generation
+            session_dict = {
+                "messages": {
+                    "tool_name": session.tool_name,
+                    "tool_params": session.tool_params,
+                    "row_count": result.row_count if result else 0,
+                    "columns": result.columns if result else [],
+                }
+            }
+            
+            title = DataSummaryHelper.generate_title(
+                session_dict=session_dict,
+                client=self._openai_client,
+                provider="openai"
+            )
+            
+            if title:
+                DataSessionService.set_title(session.id, title)
+                print(f"[DataExecutionService] Generated title for session {session.id}: {title}")
+            
+        except Exception as e:
+            print(f"[DataExecutionService] Title generation failed for session {session.id}: {e}")

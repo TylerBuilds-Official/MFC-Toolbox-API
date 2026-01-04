@@ -52,6 +52,7 @@ class DataSession:
     error_message: Optional[str]
     created_at: datetime
     updated_at: datetime
+    title: Optional[str] = None
 
     def to_dict(self) -> dict:
         result = {
@@ -67,6 +68,7 @@ class DataSession:
             "error_message": self.error_message,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "title": self.title,
         }
         return result
 
