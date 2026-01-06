@@ -52,16 +52,28 @@ async def delete_data_session(session_id: int,
 @router.get("/data/sessions")
 async def list_data_sessions(limit: int = 50, offset: int = 0,
                              tool_name: str = None, status: str = None,
+                             group_id: int = None, ungrouped: bool = False,
                              user: User = Depends(require_active_user)):
 
-    """List data sessions for current user with optional filtering."""
+    """List data sessions for current user with optional filtering.
+    
+    Query params:
+        limit: Max number of results (default 50)
+        offset: Pagination offset (default 0)
+        tool_name: Filter by tool name
+        status: Filter by status
+        group_id: Filter by group ID (returns sessions in that group)
+        ungrouped: If true, return only sessions with no group
+    """
 
     sessions = DataSessionService.list_sessions(
         user_id=user.id,
         limit=limit,
         offset=offset,
         tool_name=tool_name,
-        status=status)
+        status=status,
+        group_id=group_id,
+        ungrouped=ungrouped)
 
     return {
         "sessions": [s.to_dict() for s in sessions],

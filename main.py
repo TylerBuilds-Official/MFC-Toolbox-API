@@ -10,6 +10,7 @@ from src.api.settings import router as          settings_router
 from src.api.user_info import router as         user_info_router
 from src.api.data.utils import router as        data_utils_router
 from src.api.data.sessions import router as     data_sessions_router
+from src.api.data.groups import router as       data_groups_router
 from src.api.admin import router as             admin_router
 from src.api.conversations import router as     conversations_router
 from src.api.tools import router as             tools_router
@@ -26,6 +27,7 @@ app.include_router(settings_router, tags=["Settings"])
 app.include_router(user_info_router, tags=["User Info"])
 app.include_router(data_utils_router, tags=["Data Utils"])
 app.include_router(data_sessions_router, tags=["Data Sessions"])
+app.include_router(data_groups_router, tags=["Data Groups"])
 app.include_router(admin_router, tags=["Admin"])
 app.include_router(conversations_router, tags=["Conversations"])
 app.include_router(tools_router, tags=["Tools"])

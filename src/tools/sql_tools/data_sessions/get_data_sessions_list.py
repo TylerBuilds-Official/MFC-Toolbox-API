@@ -10,7 +10,9 @@ def get_data_sessions_list(
     limit: int = 50,
     offset: int = 0,
     tool_name: str = None,
-    status: str = None
+    status: str = None,
+    group_id: int = None,
+    ungrouped: bool = False
 ) -> list[dict]:
     """
     Retrieves data sessions for a user with optional filtering.
@@ -22,6 +24,8 @@ def get_data_sessions_list(
         offset: Pagination offset (default 0)
         tool_name: Optional filter by tool name
         status: Optional filter by status
+        group_id: Optional filter by group ID
+        ungrouped: If True, return only sessions with no group
         
     Returns:
         List of session dictionaries, ordered by UpdatedAt DESC.
@@ -56,6 +60,12 @@ def get_data_sessions_list(
         if status:
             query += " AND s.Status = ?"
             params.append(status)
+        
+        if group_id is not None:
+            query += " AND s.SessionGroupId = ?"
+            params.append(group_id)
+        elif ungrouped:
+            query += " AND s.SessionGroupId IS NULL"
         
         query += f" ORDER BY s.UpdatedAt DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
         params.extend([offset, limit])

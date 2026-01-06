@@ -69,10 +69,21 @@ class DataSessionService:
         limit: int = 50,
         offset: int = 0,
         tool_name: str = None,
-        status: str = None
+        status: str = None,
+        group_id: int = None,
+        ungrouped: bool = False
     ) -> list[DataSession]:
         """
         Lists sessions for a user with optional filtering.
+        
+        Args:
+            user_id: The user's ID
+            limit: Max number of results
+            offset: Pagination offset
+            tool_name: Optional filter by tool name
+            status: Optional filter by status
+            group_id: Optional filter by group ID
+            ungrouped: If True, return only sessions with no group
         
         Returns:
             List of DataSession objects
@@ -82,7 +93,9 @@ class DataSessionService:
             limit=limit,
             offset=offset,
             tool_name=tool_name,
-            status=status
+            status=status,
+            group_id=group_id,
+            ungrouped=ungrouped
         )
         return [DataSessionService._dict_to_session(s) for s in sessions_data]
 
