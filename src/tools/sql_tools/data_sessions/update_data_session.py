@@ -23,7 +23,7 @@ def update_data_session(session_id: int, user_id: int, updates: dict) -> bool:
     Returns:
         True if update succeeded, False if session not found or not owned by user.
     """
-    allowed_fields = {'status', 'error_message', 'visualization_config', 'tool_params', 'title'}
+    allowed_fields = {'status', 'error_message', 'visualization_config', 'tool_params', 'title', 'summary'}
     
     # Filter to only allowed fields
     filtered_updates = {k: v for k, v in updates.items() if k in allowed_fields}
@@ -119,6 +119,34 @@ def update_data_session_title(session_id: int, title: str) -> bool:
             WHERE Id = ? AND IsActive = 1
             """,
             (title, session_id)
+        )
+        rows_affected = cursor.rowcount
+        cursor.close()
+        
+        return rows_affected > 0
+
+
+def update_data_session_summary(session_id: int, summary: str) -> bool:
+    """
+    Updates the AI summary for a data session.
+    Does NOT verify user ownership - use for internal summary generation.
+    
+    Args:
+        session_id: The session ID
+        summary: The generated summary
+        
+    Returns:
+        True if update succeeded.
+    """
+    with get_mssql_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""
+            UPDATE {SCHEMA}.DataSessions
+            SET Summary = ?, UpdatedAt = GETDATE()
+            WHERE Id = ? AND IsActive = 1
+            """,
+            (summary, session_id)
         )
         rows_affected = cursor.rowcount
         cursor.close()

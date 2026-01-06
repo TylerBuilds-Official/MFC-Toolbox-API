@@ -14,6 +14,7 @@ def get_data_sessions_list(
 ) -> list[dict]:
     """
     Retrieves data sessions for a user with optional filtering.
+    Includes result metadata (has_results, row_count) via LEFT JOIN.
     
     Args:
         user_id: The user's ID
@@ -28,24 +29,35 @@ def get_data_sessions_list(
     with get_mssql_connection() as conn:
         cursor = conn.cursor()
         
+        # LEFT JOIN to DataResults for result metadata
+        # Use subquery to get the latest result per session
         query = f"""
-            SELECT Id, UserId, MessageId, SessionGroupId, ParentSessionId,
-                   ToolName, ToolParams, VisualizationConfig, Status, 
-                   ErrorMessage, CreatedAt, UpdatedAt, Title
-            FROM {SCHEMA}.DataSessions
-            WHERE UserId = ? AND IsActive = 1
+            SELECT 
+                s.Id, s.UserId, s.MessageId, s.SessionGroupId, s.ParentSessionId,
+                s.ToolName, s.ToolParams, s.VisualizationConfig, s.Status, 
+                s.ErrorMessage, s.CreatedAt, s.UpdatedAt, s.Title, s.Summary,
+                CASE WHEN r.Id IS NOT NULL THEN 1 ELSE 0 END AS HasResults,
+                r.[RowCount],
+                r.Columns
+            FROM {SCHEMA}.DataSessions s
+            LEFT JOIN (
+                SELECT SessionId, Id, [RowCount], Columns,
+                       ROW_NUMBER() OVER (PARTITION BY SessionId ORDER BY CreatedAt DESC) AS rn
+                FROM {SCHEMA}.DataResults
+            ) r ON s.Id = r.SessionId AND r.rn = 1
+            WHERE s.UserId = ? AND s.IsActive = 1
         """
         params = [user_id]
         
         if tool_name:
-            query += " AND ToolName = ?"
+            query += " AND s.ToolName = ?"
             params.append(tool_name)
         
         if status:
-            query += " AND Status = ?"
+            query += " AND s.Status = ?"
             params.append(status)
         
-        query += f" ORDER BY UpdatedAt DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
+        query += f" ORDER BY s.UpdatedAt DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
         params.extend([offset, limit])
         
         cursor.execute(query, params)
@@ -68,6 +80,10 @@ def get_data_sessions_list(
                 'created_at': row[10],
                 'updated_at': row[11],
                 'title': row[12],
+                'summary': row[13],
+                'has_results': bool(row[14]),
+                'row_count': row[15],
+                'columns': json.loads(row[16]) if row[16] else None,
             })
         
         return sessions
@@ -90,7 +106,7 @@ def get_data_sessions_by_group(group_id: int, user_id: int = None) -> list[dict]
         query = f"""
             SELECT Id, UserId, MessageId, SessionGroupId, ParentSessionId,
                    ToolName, ToolParams, VisualizationConfig, Status, 
-                   ErrorMessage, CreatedAt, UpdatedAt, Title
+                   ErrorMessage, CreatedAt, UpdatedAt, Title, Summary
             FROM {SCHEMA}.DataSessions
             WHERE SessionGroupId = ? AND IsActive = 1
         """
@@ -122,6 +138,7 @@ def get_data_sessions_by_group(group_id: int, user_id: int = None) -> list[dict]
                 'created_at': row[10],
                 'updated_at': row[11],
                 'title': row[12],
+                'summary': row[13],
             })
         
         return sessions

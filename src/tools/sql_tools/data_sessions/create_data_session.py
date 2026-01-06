@@ -98,4 +98,5 @@ def create_data_session(
         'created_at': row[10],
         'updated_at': row[11],
         'title': None,  # Title is generated after execution
+        'summary': None,  # Summary is generated after execution
     }

@@ -5,8 +5,8 @@ Service layer for DataSession operations.
 from src.tools.sql_tools import (create_data_session, get_data_session,
                                  get_data_sessions_list, get_data_sessions_by_group,
                                  update_data_session, update_data_session_status,
-                                 update_data_session_title, check_session_has_results,
-                                 soft_delete_data_session)
+                                 update_data_session_title, update_data_session_summary,
+                                 check_session_has_results, soft_delete_data_session)
 
 from src.utils.data_utils.data_session import DataSession, VisualizationConfig
 
@@ -159,6 +159,20 @@ class DataSessionService:
         return update_data_session_title(session_id, title)
 
     @staticmethod
+    def set_summary(session_id: int, summary: str) -> bool:
+        """
+        Updates session summary (internal use, no user verification).
+        
+        Args:
+            session_id: The session ID
+            summary: The generated AI summary
+            
+        Returns:
+            True if update succeeded
+        """
+        return update_data_session_summary(session_id, summary)
+
+    @staticmethod
     def get_session_with_has_results(session_id: int, user_id: int = None) -> dict | None:
         """
         Gets session as dict with 'has_results' flag included.
@@ -196,4 +210,9 @@ class DataSessionService:
             created_at=data['created_at'],
             updated_at=data['updated_at'],
             title=data.get('title'),
+            summary=data.get('summary'),
+            # Result preview metadata (from list query JOIN)
+            has_results=data.get('has_results'),
+            row_count=data.get('row_count'),
+            columns=data.get('columns'),
         )

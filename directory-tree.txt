@@ -1,0 +1,180 @@
+MFC_ToolboxAPI/
+├── src/
+│   ├── api/
+│   │   ├── data/
+│   │   │   ├── sessions.py
+│   │   │   └── utils.py
+│   │   ├── admin.py
+│   │   ├── artifacts.py
+│   │   ├── auth.py
+│   │   ├── chat.py
+│   │   ├── conversations.py
+│   │   ├── dependencies.py
+│   │   ├── health.py
+│   │   ├── lifespan.py
+│   │   ├── models.py
+│   │   ├── settings.py
+│   │   ├── tools.py
+│   │   └── user_info.py
+│   ├── data/
+│   │   ├── company_data.py
+│   │   ├── guardrails.py
+│   │   ├── instructions.py
+│   │   ├── model_capabilities.py
+│   │   └── valid_models.py
+│   ├── tools/
+│   │   ├── anthropic_chat/
+│   │   │   ├── handlers/
+│   │   │   │   ├── anthropic_conversation_handler.py
+│   │   │   │   └── anthropic_message_handler.py
+│   │   │   └── client.py
+│   │   ├── auth/
+│   │   │   ├── __init__.py
+│   │   │   ├── azure_auth.py
+│   │   │   ├── dependencies.py
+│   │   │   └── user_service.py
+│   │   ├── local_mcp_tools/
+│   │   │   ├── local_mcp_tool_base.py
+│   │   │   ├── local_mcp_tool_createDataArtifact.py
+│   │   │   ├── local_mcp_tool_definitions.py
+│   │   │   ├── local_mcp_tool_getActiveJobs.py
+│   │   │   ├── local_mcp_tool_getAllJobInfo.py
+│   │   │   ├── local_mcp_tool_getConversationMessages.py
+│   │   │   ├── local_mcp_tool_getJobDetails.py
+│   │   │   ├── local_mcp_tool_getJobInfo.py
+│   │   │   ├── local_mcp_tool_getJobsByPM.py
+│   │   │   ├── local_mcp_tool_getJobsShippingSoon.py
+│   │   │   ├── local_mcp_tool_getMachineProductionData.py
+│   │   │   ├── local_mcp_tool_getOTHoursAllJobs.py
+│   │   │   ├── local_mcp_tool_getOTHoursByJob.py
+│   │   │   ├── local_mcp_tool_getRecentConversations.py
+│   │   │   ├── local_mcp_tool_saveUserMemory.py
+│   │   │   ├── local_mcp_tool_searchConversations.py
+│   │   │   └── local_mcp_tool_searchUserMemories.py
+│   │   ├── openai_chat/
+│   │   │   ├── handlers/
+│   │   │   │   ├── openai_conversation_handler.py
+│   │   │   │   └── openai_message_handler.py
+│   │   │   └── client.py
+│   │   ├── org_tools/
+│   │   │   └── get_models.py
+│   │   ├── routers/
+│   │   │   └── chat_router.py
+│   │   ├── sql_tools/
+│   │   │   ├── artifacts/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── create_artifact.py
+│   │   │   │   ├── create_data_session_from_artifact.py
+│   │   │   │   ├── get_artifact.py
+│   │   │   │   ├── get_artifacts_by_conversation.py
+│   │   │   │   ├── get_artifacts_by_user.py
+│   │   │   │   ├── link_artifacts_to_message.py
+│   │   │   │   ├── record_artifact_access.py
+│   │   │   │   └── update_artifact.py
+│   │   │   ├── conversation_state/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── get_conversation_state.py
+│   │   │   │   └── upsert_conversation_state.py
+│   │   │   ├── conversations/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── create_conversation.py
+│   │   │   │   ├── delete_conversation.py
+│   │   │   │   ├── get_conversation.py
+│   │   │   │   ├── get_conversation_messages.py
+│   │   │   │   ├── get_conversations_list.py
+│   │   │   │   ├── get_recent_conversations.py
+│   │   │   │   ├── search_conversations.py
+│   │   │   │   ├── update_conversation.py
+│   │   │   │   └── update_conversation_summary.py
+│   │   │   ├── data_sessions/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── create_data_result.py
+│   │   │   │   ├── create_data_session.py
+│   │   │   │   ├── get_data_result.py
+│   │   │   │   ├── get_data_session.py
+│   │   │   │   ├── get_data_sessions_list.py
+│   │   │   │   ├── soft_delete_data_session.py
+│   │   │   │   └── update_data_session.py
+│   │   │   ├── memories/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── create_memory.py
+│   │   │   │   ├── delete_memory.py
+│   │   │   │   ├── get_memory.py
+│   │   │   │   ├── get_user_memories.py
+│   │   │   │   ├── search_memories.py
+│   │   │   │   └── update_memory.py
+│   │   │   ├── messages/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── add_message.py
+│   │   │   │   ├── admin_delete_messages.py
+│   │   │   │   ├── get_message.py
+│   │   │   │   ├── get_messages.py
+│   │   │   │   └── update_message_artifact.py
+│   │   │   ├── pools/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── mssql_pool.py
+│   │   │   │   ├── mysql_pool.py
+│   │   │   │   └── voltron_pool.py
+│   │   │   ├── reporting/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── get_active_jobs.py
+│   │   │   │   ├── get_job_details.py
+│   │   │   │   ├── get_job_info.py
+│   │   │   │   ├── get_jobs.py
+│   │   │   │   ├── get_jobs_by_pm.py
+│   │   │   │   ├── get_jobs_shipping_soon.py
+│   │   │   │   ├── get_machine_production.py
+│   │   │   │   ├── get_ot_hours_all_jobs.py
+│   │   │   │   └── get_ot_hours_by_job.py
+│   │   │   ├── user_settings/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── get_user_settings.py
+│   │   │   │   ├── update_current_model.py
+│   │   │   │   └── update_provider.py
+│   │   │   └── __init__.py
+│   │   ├── state/
+│   │   │   ├── settings_manager.py
+│   │   │   └── state_handler.py
+│   │   └── tool_registry.py
+│   ├── utils/
+│   │   ├── _dataclasses_main/
+│   │   │   ├── create_conversation_request.py
+│   │   │   ├── create_data_session_request.py
+│   │   │   ├── update_conversation_request.py
+│   │   │   └── update_data_session_request.py
+│   │   ├── artifact_utils/
+│   │   │   ├── __init__.py
+│   │   │   ├── artifact.py
+│   │   │   └── artifact_service.py
+│   │   ├── conversation_state_utils/
+│   │   │   ├── __init__.py
+│   │   │   └── conversation_state_service.py
+│   │   ├── conversation_utils/
+│   │   │   ├── __init__.py
+│   │   │   ├── conversation.py
+│   │   │   ├── conversation_service.py
+│   │   │   ├── message.py
+│   │   │   ├── message_service.py
+│   │   │   └── summary_helper.py
+│   │   ├── data_utils/
+│   │   │   ├── __init__.py
+│   │   │   ├── data_execution_service.py
+│   │   │   ├── data_result.py
+│   │   │   ├── data_result_service.py
+│   │   │   ├── data_session.py
+│   │   │   ├── data_session_service.py
+│   │   │   ├── summary_helper.py
+│   │   │   └── tool_normalizer.py
+│   │   ├── memory_utils/
+│   │   │   ├── __init__.py
+│   │   │   ├── memory.py
+│   │   │   └── memory_service.py
+│   │   ├── settings_utils/
+│   │   │   ├── __init__.py
+│   │   │   ├── user_settings.py
+│   │   │   └── user_settings_service.py
+│   │   ├── ui_utils/
+│   │       └── __init__.py
+│   └── app.py
+├── TODO
+└── main.py

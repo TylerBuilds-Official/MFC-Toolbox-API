@@ -53,6 +53,11 @@ class DataSession:
     created_at: datetime
     updated_at: datetime
     title: Optional[str] = None
+    summary: Optional[str] = None
+    # Result preview metadata (populated from list query)
+    has_results: Optional[bool] = None
+    row_count: Optional[int] = None
+    columns: Optional[list[str]] = None
 
     def to_dict(self) -> dict:
         result = {
@@ -69,6 +74,10 @@ class DataSession:
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "title": self.title,
+            "summary": self.summary,
+            "has_results": self.has_results,
+            "row_count": self.row_count,
+            "columns": self.columns,
         }
         return result
 

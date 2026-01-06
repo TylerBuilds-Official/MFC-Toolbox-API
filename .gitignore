@@ -3,8 +3,11 @@
 .mypy_cache
 __pycache__
 
-.idea
 \.idea
+.idea
 .env
+
 test_main.http
 test_data_pl.http
+
+directory_tree.txt

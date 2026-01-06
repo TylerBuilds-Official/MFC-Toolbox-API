@@ -104,6 +104,9 @@ class DataExecutionService:
             # Generate title using AI
             self._generate_and_save_title(session, result)
             
+            # Generate summary using AI
+            self._generate_and_save_summary(session, result)
+            
             # Return updated session and result
             updated_session = DataSessionService.get_session(session_id)
             return updated_session, result
@@ -229,3 +232,42 @@ class DataExecutionService:
             
         except Exception as e:
             print(f"[DataExecutionService] Title generation failed for session {session.id}: {e}")
+
+    def _generate_and_save_summary(self, session: DataSession, result: DataResult) -> None:
+        """
+        Generates an AI-powered summary for the session tooltip and saves it.
+        Fails silently if summary generation fails.
+        
+        Args:
+            session: The data session
+            result: The execution result
+        """
+        if not self._openai_client:
+            print("[DataExecutionService] No OpenAI client available for summary generation")
+            return
+        
+        try:
+            # Build session dict for summary generation
+            # Include sample data for context
+            sample_rows = result.rows[:5] if result and result.rows else []
+            
+            session_dict = {
+                "tool_name": session.tool_name,
+                "tool_params": session.tool_params,
+                "row_count": result.row_count if result else 0,
+                "columns": result.columns if result else [],
+                "sample_data": sample_rows,
+            }
+            
+            summary = DataSummaryHelper.ai_data_session_summary(
+                session_dict=session_dict,
+                client=self._openai_client,
+                provider="openai"
+            )
+            
+            if summary:
+                DataSessionService.set_summary(session.id, summary)
+                print(f"[DataExecutionService] Generated summary for session {session.id}: {summary}")
+            
+        except Exception as e:
+            print(f"[DataExecutionService] Summary generation failed for session {session.id}: {e}")

@@ -21,7 +21,7 @@ def get_data_session(session_id: int, user_id: int = None) -> dict | None:
                 f"""
                 SELECT Id, UserId, MessageId, SessionGroupId, ParentSessionId,
                        ToolName, ToolParams, VisualizationConfig, Status, 
-                       ErrorMessage, CreatedAt, UpdatedAt, Title
+                       ErrorMessage, CreatedAt, UpdatedAt, Title, Summary
                 FROM {SCHEMA}.DataSessions
                 WHERE Id = ? AND UserId = ? AND IsActive = 1
                 """,
@@ -32,7 +32,7 @@ def get_data_session(session_id: int, user_id: int = None) -> dict | None:
                 f"""
                 SELECT Id, UserId, MessageId, SessionGroupId, ParentSessionId,
                        ToolName, ToolParams, VisualizationConfig, Status, 
-                       ErrorMessage, CreatedAt, UpdatedAt, Title
+                       ErrorMessage, CreatedAt, UpdatedAt, Title, Summary
                 FROM {SCHEMA}.DataSessions
                 WHERE Id = ? AND IsActive = 1
                 """,
@@ -59,4 +59,5 @@ def get_data_session(session_id: int, user_id: int = None) -> dict | None:
             'created_at': row[10],
             'updated_at': row[11],
             'title': row[12],
+            'summary': row[13],
         }
