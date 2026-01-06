@@ -6,7 +6,7 @@ This is the central service that ties together:
 - Result normalization
 - Database storage
 - Status management
-- Title generation (AI-powered)
+- Title/Summary generation (AI-powered via Anthropic)
 """
 import os
 from typing import Any
@@ -16,7 +16,7 @@ from src.utils.data_utils.tool_normalizer import ToolNormalizer
 from src.utils.data_utils.data_session import DataSession
 from src.utils.data_utils.data_result import DataResult, NormalizedResult
 from src.utils.data_utils.summary_helper import DataSummaryHelper
-from src.tools.openai_chat.client import OpenAIClient
+from src.tools.anthropic_chat.client import AnthropicClient
 
 # Import from centralized registry
 from src.tools.tool_registry import (
@@ -38,9 +38,9 @@ class DataExecutionService:
     
     def __init__(self):
         self.normalizer = ToolNormalizer()
-        # Initialize OpenAI client for title generation
-        api_key = os.getenv("OPENAI_API_KEY")
-        self._openai_client = OpenAIClient(api_key=api_key).client if api_key else None
+        # Initialize Anthropic client for title/summary generation
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        self._anthropic_client = AnthropicClient(api_key=api_key).client if api_key else None
 
     def execute(
         self, 
@@ -154,7 +154,8 @@ class DataExecutionService:
         raw_result = self._execute_tool(tool_name, tool_params)
         return self.normalizer.normalize(tool_name, raw_result)
 
-    def _execute_tool(self, tool_name: str, tool_params: dict = None) -> Any:
+    @staticmethod
+    def _execute_tool(tool_name: str, tool_params: dict = None) -> Any:
         """
         Executes a tool by name using the registry.
         
@@ -183,7 +184,8 @@ class DataExecutionService:
         else:
             return executor()
 
-    def get_available_tools(self, user_role: str = "user") -> list[dict]:
+    @staticmethod
+    def get_available_tools(user_role: str = "user") -> list[dict]:
         """
         Returns list of tools available for data visualization.
         Filtered by user's permission level.
@@ -205,8 +207,8 @@ class DataExecutionService:
             session: The data session
             result: The execution result
         """
-        if not self._openai_client:
-            print("[DataExecutionService] No OpenAI client available for title generation")
+        if not self._anthropic_client:
+            print("[DataExecutionService] No Anthropic client available for title generation")
             return
         
         try:
@@ -222,8 +224,8 @@ class DataExecutionService:
             
             title = DataSummaryHelper.generate_title(
                 session_dict=session_dict,
-                client=self._openai_client,
-                provider="openai"
+                client=self._anthropic_client,
+                provider="anthropic"
             )
             
             if title:
@@ -242,8 +244,8 @@ class DataExecutionService:
             session: The data session
             result: The execution result
         """
-        if not self._openai_client:
-            print("[DataExecutionService] No OpenAI client available for summary generation")
+        if not self._anthropic_client:
+            print("[DataExecutionService] No Anthropic client available for summary generation")
             return
         
         try:
@@ -261,8 +263,8 @@ class DataExecutionService:
             
             summary = DataSummaryHelper.ai_data_session_summary(
                 session_dict=session_dict,
-                client=self._openai_client,
-                provider="openai"
+                client=self._anthropic_client,
+                provider="anthropic"
             )
             
             if summary:

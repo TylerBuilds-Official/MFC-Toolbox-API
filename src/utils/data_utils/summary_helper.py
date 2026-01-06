@@ -11,9 +11,10 @@ class DataSummaryHelper:
             f"You will be given a data session dict with tool name and parameters. "
             f"Generate a concise 3-6 word title for this data session.\n\n"
             f"{session_dict['messages']}\n\n"
-            f"Make sure to include some type of unique identifier in the title to help differentiate sessions. "
+            f"Make sure to include some type of unique identifier like the job number, or a specific detail about the session in the title to help differentiate sessions. "
             f"(i.e. 6489 PTOI OT Metrics, 6517 Eastlake Job Details, Jan Shop Hours, etc..)\n\n"
             f"Return ONLY the title, no quotes or extra text."
+            f"Do NOT make up random titles or include irrelevant details."
         )
 
         try:
@@ -54,18 +55,18 @@ class DataSummaryHelper:
         try:
             if provider == "openai":
                 response = client.chat.completions.create(
-                    model="gpt-4o",
+                    model="gpt-5.2-chat-latest",
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=80,
+                    max_tokens=400,
                     temperature=0.7
                 )
                 return response.choices[0].message.content.strip()[:300]
 
             elif provider == "anthropic":
                 response = client.messages.create(
-                    model="claude-3-5-haiku-20241022",
+                    model="claude-opus-4-5-20251101",
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=80
+                    max_tokens=400
                 )
                 return response.content[0].text.strip()[:300]
 
