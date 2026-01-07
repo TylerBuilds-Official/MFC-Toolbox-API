@@ -40,7 +40,9 @@ TOOL_CATEGORIES = {
     "admin_tools": "admin",    # System administration
     "memory": "user",          # Memory tools (search/save memories)
     "conversation": "user",    # Conversation tools (search/retrieve past conversations)
+    "data_sessions": "user",   # Data session tools (search/retrieve past data sessions)
     "artifacts": "user",       # Artifact creation tools
+    "company_info": "user",    # Company/employee lookups
 }
 
 
@@ -57,12 +59,32 @@ from src.tools.local_mcp_tools.local_mcp_tool_getActiveJobs import oa_get_active
 # REMOVED: from src.tools.local_mcp_tools.local_mcp_tool_getJobDetails import oa_get_job_details
 from src.tools.local_mcp_tools.local_mcp_tool_getJobsByPM import oa_get_jobs_by_pm
 from src.tools.local_mcp_tools.local_mcp_tool_getJobsShippingSoon import oa_get_jobs_shipping_soon
+# Company Data Tools
+from src.tools.local_mcp_tools.company_data import (
+    oa_get_employee,
+    oa_get_employee_email,
+    oa_get_employee_phone,
+    oa_get_employees_by_department,
+    oa_get_project_managers,
+    oa_get_it_team,
+    oa_search_employees,
+    oa_get_employee_directory_summary,
+    oa_get_department_summary,
+    oa_list_departments,
+    oa_get_company_info,
+    oa_get_contact_info,
+    oa_get_all_company_data,
+)
 from src.tools.local_mcp_tools.local_mcp_tool_searchUserMemories import oa_search_user_memories
 from src.tools.local_mcp_tools.local_mcp_tool_saveUserMemory import oa_save_user_memory
 from src.tools.local_mcp_tools.local_mcp_tool_searchConversations import oa_search_conversations
 from src.tools.local_mcp_tools.local_mcp_tool_getRecentConversations import oa_get_recent_conversations
 from src.tools.local_mcp_tools.local_mcp_tool_getConversationMessages import oa_get_conversation_messages
 from src.tools.local_mcp_tools.local_mcp_tool_createDataArtifact import oa_create_data_artifact
+# Data Session Tools (AI-internal)
+from src.tools.local_mcp_tools.local_mcp_tool_searchDataSessions import oa_search_data_sessions
+from src.tools.local_mcp_tools.local_mcp_tool_getDataSessions import oa_get_data_sessions
+from src.tools.local_mcp_tools.local_mcp_tool_getDataSessionDetails import oa_get_data_session_details
 
 
 TOOL_REGISTRY: list[dict] = [
@@ -434,11 +456,107 @@ TOOL_REGISTRY: list[dict] = [
     },
     
     # =========================================================================
+    # Data Session Tools (AI-internal)
+    # =========================================================================
+    {
+        "name": "search_data_sessions",
+        "description": "Search the user's data sessions by keyword. Searches titles, AI summaries, tool names, and parameters. Use when the user references past data queries, asks about reports they ran, or when you need to find previous data analysis. Returns ranked results with relevance scores.",
+        "category": "data_sessions",
+        "display_category": "Data Sessions",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Keywords to search for (e.g., 'production', 'job 6516', 'overtime', 'machine')"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum results to return (default 15, max 50)"
+                }
+            },
+            "required": ["query"]
+        },
+        "executor": oa_search_data_sessions,
+        "chat_toolbox": False,  # AI-internal tool
+        "data_visualization": False,
+    },
+    {
+        "name": "get_data_sessions",
+        "description": "Get data sessions with flexible filtering and sorting. Use for 'show my recent data', 'what reports did I run last week', 'my first data sessions'. Supports date ranges, tool filters, and ascending/descending order.",
+        "category": "data_sessions",
+        "display_category": "Data Sessions",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum sessions to return (default 10, max 50)"
+                },
+                "sort_by": {
+                    "type": "string",
+                    "enum": ["created_at", "updated_at"],
+                    "description": "Sort field (default 'updated_at')"
+                },
+                "sort_order": {
+                    "type": "string",
+                    "enum": ["asc", "desc"],
+                    "description": "Sort direction - 'asc' for oldest first, 'desc' for newest first (default 'desc')"
+                },
+                "tool_name": {
+                    "type": "string",
+                    "description": "Filter by specific tool (e.g., 'get_machine_production', 'get_ot_hours_by_job')"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": ["pending", "running", "success", "error"],
+                    "description": "Filter by status"
+                },
+                "after_date": {
+                    "type": "string",
+                    "description": "ISO date - only sessions after this date (e.g., '2025-01-01T00:00:00')"
+                },
+                "before_date": {
+                    "type": "string",
+                    "description": "ISO date - only sessions before this date"
+                }
+            },
+            "required": []
+        },
+        "executor": oa_get_data_sessions,
+        "chat_toolbox": False,  # AI-internal tool
+        "data_visualization": False,
+    },
+    {
+        "name": "get_data_session_details",
+        "description": "Get full details for a specific data session including result preview. Use AFTER search_data_sessions or get_data_sessions when you need: the exact parameters used, actual data to summarize, or parent session info for lineage. Returns session metadata and preview of result rows.",
+        "category": "data_sessions",
+        "display_category": "Data Sessions",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "session_id": {
+                    "type": "integer",
+                    "description": "The session ID to retrieve (obtained from search or get_data_sessions)"
+                },
+                "max_preview_rows": {
+                    "type": "integer",
+                    "description": "Number of result rows to include in preview (default 10, max 50)"
+                }
+            },
+            "required": ["session_id"]
+        },
+        "executor": oa_get_data_session_details,
+        "chat_toolbox": False,  # AI-internal tool
+        "data_visualization": False,
+    },
+    
+    # =========================================================================
     # Artifact Tools (AI-internal)
     # =========================================================================
     {
         "name": "create_data_artifact",
-        "description": "Create a clickable data visualization card in the chat response. Use this when the user asks for data that would benefit from interactive visualization - job info, production reports, overtime summaries, etc. The artifact appears as a card the user can click to open a full data visualization page.",
+        "description": "Create a clickable data visualization card in the chat response. Use this when the user asks for data that would benefit from interactive visualization - job info, production reports, overtime summaries, etc. The artifact appears as a card the user can click to open a full data visualization page. Use parent_session_id when re-running or refining a previous query to maintain lineage.",
         "category": "artifacts",
         "display_category": "Artifacts",
         "parameters": {
@@ -460,12 +578,232 @@ TOOL_REGISTRY: list[dict] = [
                 "title": {
                     "type": "string",
                     "description": "Custom title for the artifact card (optional - auto-generated if not provided)"
+                },
+                "parent_session_id": {
+                    "type": "integer",
+                    "description": "Optional parent session ID for lineage tracking. Use when re-running or refining a previous query to link the new session to its parent."
                 }
             },
             "required": ["target_tool"]
         },
         "executor": oa_create_data_artifact,
         "chat_toolbox": False,  # AI-internal tool
+        "data_visualization": False,
+    },
+    
+    # =========================================================================
+    # Company Data Tools (AI-internal)
+    # =========================================================================
+    {
+        "name": "get_employee",
+        "description": "Look up a specific employee's contact info by name. Supports fuzzy matching (e.g., 'blake', 'Blake Reed', 'blak' all work). Returns position, email, extension, and cell. Use for 'what's [name]'s email/phone/extension?'",
+        "category": "company_info",
+        "display_category": "Company",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "employee_name": {
+                    "type": "string",
+                    "description": "Full or partial employee name (e.g., 'blake', 'Blake Reed')"
+                }
+            },
+            "required": ["employee_name"]
+        },
+        "executor": oa_get_employee,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "get_employee_email",
+        "description": "Quick email lookup for a specific employee. Supports fuzzy name matching. Use when user just needs an email address.",
+        "category": "company_info",
+        "display_category": "Company",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "employee_name": {
+                    "type": "string",
+                    "description": "Full or partial employee name"
+                }
+            },
+            "required": ["employee_name"]
+        },
+        "executor": oa_get_employee_email,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "get_employee_phone",
+        "description": "Get phone contact info (extension and cell) for a specific employee. Supports fuzzy name matching.",
+        "category": "company_info",
+        "display_category": "Company",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "employee_name": {
+                    "type": "string",
+                    "description": "Full or partial employee name"
+                }
+            },
+            "required": ["employee_name"]
+        },
+        "executor": oa_get_employee_phone,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "get_employees_by_department",
+        "description": "List all employees in a department. Valid departments: executive, it, purchasing, project_mgmt, estimating, admin, safety, sales. Also accepts aliases like 'pm', 'tech', 'dev', 'office', 'leadership', 'exec'.",
+        "category": "company_info",
+        "display_category": "Company",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "department": {
+                    "type": "string",
+                    "description": "Department name or alias (e.g., 'it', 'project_mgmt', 'pm', 'exec')"
+                }
+            },
+            "required": ["department"]
+        },
+        "executor": oa_get_employees_by_department,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "get_project_managers",
+        "description": "Get all project managers. Shortcut for common query - returns list of PMs with contact info.",
+        "category": "company_info",
+        "display_category": "Company",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "executor": oa_get_project_managers,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "get_it_team",
+        "description": "Get all IT/Development team members. Returns list with contact info.",
+        "category": "company_info",
+        "display_category": "Company",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "executor": oa_get_it_team,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "search_employees",
+        "description": "Search employees by name, position, or email. Use as fallback when get_employee returns nothing, or for role-based queries like 'who handles purchasing' or 'find estimators'.",
+        "category": "company_info",
+        "display_category": "Company",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "search_term": {
+                    "type": "string",
+                    "description": "Search term to match against name, position, or email"
+                }
+            },
+            "required": ["search_term"]
+        },
+        "executor": oa_search_employees,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "get_employee_directory_summary",
+        "description": "Get a compact, scannable employee directory. Returns all employees with position and extension, one per line. Low token cost overview.",
+        "category": "company_info",
+        "display_category": "Company",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "executor": oa_get_employee_directory_summary,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "get_department_summary",
+        "description": "Get a summary of all departments and their members. Shows org structure at a glance.",
+        "category": "company_info",
+        "display_category": "Company",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "executor": oa_get_department_summary,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "list_departments",
+        "description": "Get list of valid department names. Use for disambiguation or when unsure which department to query.",
+        "category": "company_info",
+        "display_category": "Company",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "executor": oa_list_departments,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "get_company_info",
+        "description": "Get company information for MFC or Master Machining. Returns address, phone, fax, website, and description. Use 'mfc' (default) or 'mmm'/'master machining' for entity parameter.",
+        "category": "company_info",
+        "display_category": "Company",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "entity": {
+                    "type": "string",
+                    "description": "Which company: 'mfc' (default) or 'mmm' for Master Machining"
+                }
+            },
+            "required": []
+        },
+        "executor": oa_get_company_info,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "get_contact_info",
+        "description": "Get MFC office address, phone, fax, and website. Use for 'where is the office', 'company phone number', 'MFC address', directions questions.",
+        "category": "company_info",
+        "display_category": "Company",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "executor": oa_get_contact_info,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "get_all_company_data",
+        "description": "Get complete company data dump including all employees and business info. Use sparingly - prefer targeted tools for most queries. High token cost.",
+        "category": "company_info",
+        "display_category": "Company",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "executor": oa_get_all_company_data,
+        "chat_toolbox": False,
         "data_visualization": False,
     },
 ]

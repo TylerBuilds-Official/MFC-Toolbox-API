@@ -33,6 +33,7 @@ class ArtifactGenerationParams:
     - Tool execution info
     - Basic chart config hints
     - Traceability (jobNumber)
+    - Lineage (parentSessionId)
     """
     tool_name:    str
     tool_params:  dict = field(default_factory=dict)
@@ -46,6 +47,9 @@ class ArtifactGenerationParams:
     
     # Traceability
     job_number:   Optional[str]       = None
+    
+    # Lineage - links new session to parent for re-runs/refinements
+    parent_session_id: Optional[int]  = None
 
     def to_dict(self) -> dict:
         result = {
@@ -65,6 +69,8 @@ class ArtifactGenerationParams:
             result["seriesHints"] = self.series_hints
         if self.job_number:
             result["jobNumber"] = self.job_number
+        if self.parent_session_id is not None:
+            result["parentSessionId"] = self.parent_session_id
         
         return result
 
@@ -74,14 +80,15 @@ class ArtifactGenerationParams:
     @staticmethod
     def from_dict(data: dict) -> "ArtifactGenerationParams":
         return ArtifactGenerationParams(
-            tool_name    = data.get("toolName", ""),
-            tool_params  = data.get("toolParams", {}),
-            chart_type   = data.get("chartType"),
-            x_axis       = data.get("xAxis"),
-            y_axis       = data.get("yAxis"),
-            group_by     = data.get("groupBy"),
-            series_hints = data.get("seriesHints"),
-            job_number   = data.get("jobNumber"),
+            tool_name         = data.get("toolName", ""),
+            tool_params       = data.get("toolParams", {}),
+            chart_type        = data.get("chartType"),
+            x_axis            = data.get("xAxis"),
+            y_axis            = data.get("yAxis"),
+            group_by          = data.get("groupBy"),
+            series_hints      = data.get("seriesHints"),
+            job_number        = data.get("jobNumber"),
+            parent_session_id = data.get("parentSessionId"),
         )
 
     @staticmethod

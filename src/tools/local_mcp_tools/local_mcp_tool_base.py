@@ -12,7 +12,22 @@ from src.tools.local_mcp_tools.local_mcp_tool_getActiveJobs import oa_get_active
 from src.tools.local_mcp_tools.local_mcp_tool_getJobsByPM import oa_get_jobs_by_pm
 from src.tools.local_mcp_tools.local_mcp_tool_getJobsShippingSoon import oa_get_jobs_shipping_soon
 from src.tools.local_mcp_tools.local_mcp_tool_createDataArtifact import oa_create_data_artifact
+from src.tools.local_mcp_tools.local_mcp_tool_searchDataSessions import oa_search_data_sessions
+from src.tools.local_mcp_tools.local_mcp_tool_getDataSessions import oa_get_data_sessions
+from src.tools.local_mcp_tools.local_mcp_tool_getDataSessionDetails import oa_get_data_session_details
 
+from src.tools.local_mcp_tools.company_data import (oa_get_all_company_data,
+                                                    oa_get_company_info,
+                                                    oa_get_contact_info,
+                                                    oa_get_department_summary,
+                                                    oa_get_employee_directory_summary,
+                                                    oa_get_employee,
+                                                    oa_get_employees_by_department,
+                                                    oa_get_it_team,
+                                                    oa_get_project_managers,
+                                                    oa_list_departments,
+                                                    oa_search_employees,
+                                                    )
 
 # Import permission checking from centralized registry
 from src.tools.tool_registry import get_tool, can_use_tool
@@ -27,26 +42,43 @@ class OAToolBase:
     """
     
     TOOL_REGISTRY = {
-        'get_job_info': oa_get_job_info,
-        'get_all_job_info': oa_get_jobs,
-        'get_machine_production': oa_get_machine_production,
-        'get_ot_hours_by_job': oa_get_ot_hours_by_job,
-        'get_ot_hours_all_jobs': oa_get_ot_hours_all_jobs,
-        'search_user_memories': oa_search_user_memories,
-        'get_active_jobs': oa_get_active_jobs,
+        'get_job_info':                 oa_get_job_info,
+        'get_all_job_info':             oa_get_jobs,
+        'get_machine_production':       oa_get_machine_production,
+        'get_ot_hours_by_job':          oa_get_ot_hours_by_job,
+        'get_ot_hours_all_jobs':        oa_get_ot_hours_all_jobs,
+        'search_user_memories':         oa_search_user_memories,
+        'get_active_jobs':              oa_get_active_jobs,
 
         # REMOVED:
         # 'get_job_details': oa_get_job_details,
 
-        'get_jobs_by_pm': oa_get_jobs_by_pm,
-        "get_jobs_shipping_soon": oa_get_jobs_shipping_soon,
+        'get_jobs_by_pm':               oa_get_jobs_by_pm,
+        "get_jobs_shipping_soon":       oa_get_jobs_shipping_soon,
 
-        # Non - Callable
-        'save_user_memory': oa_save_user_memory,
-        'search_conversations': oa_search_conversations,
-        'get_recent_conversations': oa_get_recent_conversations,
-        'get_conversation_messages': oa_get_conversation_messages,
-        'create_data_artifact': oa_create_data_artifact,
+        # Internal tools / Non-callable by user
+        'save_user_memory':             oa_save_user_memory,
+        'search_conversations':         oa_search_conversations,
+        'get_recent_conversations':     oa_get_recent_conversations,
+        'get_conversation_messages':    oa_get_conversation_messages,
+        'create_data_artifact':         oa_create_data_artifact,
+        'search_data_sessions':         oa_search_data_sessions,
+        'get_data_sessions':            oa_get_data_sessions,
+        'get_data_session_details':     oa_get_data_session_details,
+
+        # Employee / Company data tools
+        'get_all_company_data':             oa_get_all_company_data,
+        'get_company_info':                 oa_get_company_info,
+        'get_contact_info':                 oa_get_contact_info,
+        'get_department_summary':           oa_get_department_summary,
+        'get_employee_directory_summary':   oa_get_employee_directory_summary,
+        'get_employee':                     oa_get_employee,
+        'get_employees_by_department':      oa_get_employees_by_department,
+        'get_it_team':                      oa_get_it_team,
+        'get_project_managers':             oa_get_project_managers,
+        'list_departments':                 oa_list_departments,
+        'search_employees':                 oa_search_employees,
+
     }
     
     # Tools that need user_id injected
@@ -57,6 +89,9 @@ class OAToolBase:
         'get_recent_conversations',
         'get_conversation_messages',
         'create_data_artifact',
+        'search_data_sessions',
+        'get_data_sessions',
+        'get_data_session_details',
     }
     
     # Tools that also need conversation_id injected

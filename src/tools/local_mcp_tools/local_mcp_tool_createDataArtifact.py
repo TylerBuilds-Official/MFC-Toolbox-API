@@ -16,6 +16,7 @@ def oa_create_data_artifact(
     chart_type: str = None,
     title: str = None,
     job_number: str = None,
+    parent_session_id: int = None,
     # Context injected by tool dispatcher
     user_id: int = None,
     conversation_id: int = None,
@@ -37,6 +38,9 @@ def oa_create_data_artifact(
         chart_type: Suggested visualization type (bar, line, pie, table, card)
         title: Optional custom title (auto-generated if not provided)
         job_number: Job number for traceability (extracted from params if not provided)
+        parent_session_id: Optional parent session ID for lineage tracking.
+                           Use this when re-running or refining a previous query.
+                           The new session will be linked to the parent in a chain.
 
     Returns:
         Dict with artifact_id and suggested embed marker
@@ -65,6 +69,17 @@ def oa_create_data_artifact(
           "chart_type": "bar",
           "title": "Job 6516 January Overtime"
         }
+        
+    Re-running a previous query with lineage:
+    
+        json {
+          "target_tool": "get_machine_production",
+          "tool_params": {
+            "days_back": 30
+          },
+          "parent_session_id": 123,
+          "title": "Updated Machine Production"
+        }
 
 
     """
@@ -87,6 +102,13 @@ def oa_create_data_artifact(
     if not tool_def.get("data_visualization", False):
         return {"error": f"Tool '{target_tool}' does not support data visualization"}
     
+    # Validate parent_session_id if provided
+    if parent_session_id is not None:
+        from src.tools.sql_tools import get_data_session
+        parent = get_data_session(parent_session_id, user_id)
+        if not parent:
+            return {"error": f"Parent session {parent_session_id} not found or access denied"}
+    
     # Extract job_number from params if not explicitly provided
     if not job_number and tool_params:
         job_number = tool_params.get("job_number") or tool_params.get("job")
@@ -104,13 +126,14 @@ def oa_create_data_artifact(
     
     # Build generation params
     gen_params = ArtifactGenerationParams(
-        tool_name    = target_tool,
-        tool_params  = tool_params or {},
-        chart_type   = chart_type,
-        x_axis       = chart_config.get("x_axis"),
-        y_axis       = chart_config.get("y_axis"),
-        group_by     = chart_config.get("series_by"),
-        job_number   = job_number,
+        tool_name         = target_tool,
+        tool_params       = tool_params or {},
+        chart_type        = chart_type,
+        x_axis            = chart_config.get("x_axis"),
+        y_axis            = chart_config.get("y_axis"),
+        group_by          = chart_config.get("series_by"),
+        job_number        = job_number,
+        parent_session_id = parent_session_id,
     )
     
     # Create artifact
@@ -123,14 +146,20 @@ def oa_create_data_artifact(
         status           = "ready",
     )
     
-    # Return info for LLM to embed in response
-    return {
+    # Build response
+    response = {
         "success": True,
         "artifact_id": artifact.id,
         "title": artifact.title,
         "embed_marker": f'<artifact id="{artifact.id}" type="data" title="{artifact.title}" />',
         "instructions": "Include the embed_marker in your response where you want the artifact card to appear."
     }
+    
+    # Note lineage if parent was provided
+    if parent_session_id:
+        response["lineage_note"] = f"This artifact is linked to parent session {parent_session_id}"
+    
+    return response
 
 
 def _generate_title(tool_name: str, tool_params: dict, job_number: str = None) -> str:
