@@ -3,26 +3,41 @@ from src.tools.sql_tools.pools import get_mssql_connection, SCHEMA
 
 def get_conversation_messages(conversation_id: int, user_id: int) -> dict | None:
     """
-    Get all messages for a conversation, with ownership verification.
+    Get all messages for a conversation, with access verification.
+    
+    Access is granted if:
+    1. User owns the conversation directly, OR
+    2. User is a member of a project that contains this conversation
     
     Args:
         conversation_id: The conversation to fetch messages for
-        user_id: The requesting user's ID (ownership check)
+        user_id: The requesting user's ID (access check)
         
     Returns:
-        Dict with conversation metadata and messages, or None if not found/not owned
+        Dict with conversation metadata and messages, or None if not found/no access
     """
     with get_mssql_connection() as conn:
         cursor = conn.cursor()
         
-        # First verify ownership and get conversation metadata
+        # Verify access (ownership OR project membership) and get conversation metadata
         cursor.execute(
             f"""
-            SELECT Id, Title, Summary, CreatedAt, UpdatedAt
-            FROM {SCHEMA}.Conversations
-            WHERE Id = ? AND UserId = ? AND IsActive = 1
+            SELECT c.Id, c.Title, c.Summary, c.CreatedAt, c.UpdatedAt
+            FROM {SCHEMA}.Conversations c
+            WHERE c.Id = ? 
+              AND c.IsActive = 1
+              AND (
+                c.UserId = ?
+                OR EXISTS (
+                  SELECT 1
+                  FROM {SCHEMA}.ConversationProjectMemberships cpc
+                  JOIN {SCHEMA}.ConversationProjectMembers cpm ON cpc.ProjectId = cpm.ProjectId
+                  WHERE cpc.ConversationId = c.Id
+                    AND cpm.UserId = ?
+                )
+              )
             """,
-            (conversation_id, user_id)
+            (conversation_id, user_id, user_id)
         )
         
         conv_row = cursor.fetchone()

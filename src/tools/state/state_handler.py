@@ -64,14 +64,14 @@ class StateHandler:
         if "keyword: snowy" in message.lower():
             self.state["is_developer"] = True
 
-    def append_to_summary(self, user_message: str, assistant_reply: str, max_chars: int = 150):
+    def append_to_summary(self, user_message: str, assistant_reply: str, max_chars: int = 400):
         """
         Append a turn to the conversation summary.
         
         Args:
             user_message: The user's message
             assistant_reply: The assistant's response
-            max_chars: Max characters to keep from each message
+            max_chars: Max characters to keep from each message, default is 400
         """
         user_truncated = user_message[:max_chars]
         assistant_truncated = assistant_reply[:max_chars]

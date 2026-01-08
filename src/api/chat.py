@@ -14,6 +14,7 @@ from src.utils.conversation_utils import ConversationService, MessageService
 from src.utils.conversation_utils.summary_helper import ConversationSummaryHelper
 from src.utils.memory_utils import MemoryService
 from src.utils.conversation_state_utils import ConversationStateService
+from src.utils.conversation_project_utils import ConversationProjectService
 from src.data.model_capabilities import get_capabilities, get_provider
 from src.data.instructions import Instructions
 from src.tools.state.state_handler import StateHandler
@@ -22,9 +23,39 @@ from src.api.dependencies import get_openai_message_handler, get_anthropic_messa
 
 router = APIRouter()
 
+
+def get_project_instructions(project_id: int, user_id: int) -> str | None:
+    """
+    Fetch project custom instructions if project exists and user has access.
+    Returns None if no project_id, project not found, or no custom instructions.
+    """
+    if not project_id:
+        return None
+    
+    project = ConversationProjectService.get_project(project_id, user_id)
+    if project and project.custom_instructions:
+        return project.custom_instructions
+    return None
+
+
+def link_conversation_to_project(conversation_id: int, project_id: int, user_id: int) -> None:
+    """
+    Link a new conversation to a project. Fails silently on error.
+    """
+    if not project_id or not conversation_id:
+        return
+    
+    try:
+        ConversationProjectService.add_conversation(conversation_id, project_id, user_id)
+    except Exception as e:
+        # Log but don't fail the chat - linking is secondary to chat functionality
+        print(f"[chat] Failed to link conversation {conversation_id} to project {project_id}: {e}")
+
+
 @router.get("/chat")
 async def chat(message: str, model: str = None,
                provider: str = None, conversation_id: int = None,
+               project_id: int = None,
                user: User = Depends(require_active_user),
                anthropic_message_handler=Depends(get_anthropic_message_handler),
                openai_message_handler=Depends(get_openai_message_handler)):
@@ -36,6 +67,7 @@ async def chat(message: str, model: str = None,
         model: Model to use (optional - falls back to user's default)
         provider: Provider to use (optional - falls back to user's default)
         conversation_id: Conversation to continue (optional - creates new if not provided)
+        project_id: Project context (optional - applies custom instructions, links new convos)
         user: Current user
 
     Resolution order for model/provider:
@@ -77,6 +109,11 @@ async def chat(message: str, model: str = None,
         thinking_budget = settings.anthropic_thinking_budget
 
         # =================================================================
+        # Step 1c: Get project instructions if project context provided
+        # =================================================================
+        project_instructions = get_project_instructions(project_id, user.id)
+
+        # =================================================================
         # Step 2: Get or create conversation
         # =================================================================
         is_new_conversation = False
@@ -93,6 +130,10 @@ async def chat(message: str, model: str = None,
                 title="New Conversation"
             )
             conversation_id = conversation.id
+            
+            # Link to project if project_id provided
+            if project_id:
+                link_conversation_to_project(conversation_id, project_id, user.id)
 
         # =================================================================
         # Step 2b: Load or create conversation state
@@ -125,7 +166,12 @@ async def chat(message: str, model: str = None,
         memories_text = MemoryService.format_for_prompt(memories)
 
         state = state_handler.get_state()
-        instructions_text = Instructions(state, user=user, memories_text=memories_text).build_instructions()
+        instructions_text = Instructions(
+            state, 
+            user=user, 
+            memories_text=memories_text,
+            project_instructions=project_instructions
+        ).build_instructions()
         tool_context = {"user_id": user.id, "user_role": user.role, "conversation_id": conversation_id}
 
         thinking_content = None
@@ -219,6 +265,7 @@ async def chat_stream(
         model: str = None,
         provider: str = None,
         conversation_id: int = None,
+        project_id: int = None,
         user: User = Depends(require_active_user),
         openai_message_handler=Depends(get_openai_message_handler),
         anthropic_message_handler=Depends(get_anthropic_message_handler)
@@ -231,6 +278,7 @@ async def chat_stream(
         model: Model to use (optional - falls back to user's default)
         provider: Provider to use (optional - falls back to user's default)
         conversation_id: Conversation to continue (optional)
+        project_id: Project context (optional - applies custom instructions, links new convos)
         user: Current authenticated user
 
     Returns:
@@ -258,6 +306,9 @@ async def chat_stream(
     )
     thinking_budget = settings.anthropic_thinking_budget
 
+    # Get project instructions if project context provided
+    project_instructions = get_project_instructions(project_id, user.id)
+
     # Get or create conversation
     is_new_conversation = False
     if conversation_id:
@@ -271,6 +322,10 @@ async def chat_stream(
         is_new_conversation = True
         conversation = ConversationService.create_conversation(user.id, title="New Conversation")
         conversation_id = conversation.id
+        
+        # Link to project if project_id provided
+        if project_id:
+            link_conversation_to_project(conversation_id, project_id, user.id)
 
     # Load or create conversation state
     saved_state = ConversationStateService.get_state(conversation_id)
@@ -292,11 +347,16 @@ async def chat_stream(
         user_id=user.id
     )
 
-    # Build instructions with memories
+    # Build instructions with memories and project instructions
     state = state_handler.get_state()
     memories = MemoryService.get_memories(user.id, limit=settings.memory_limit)
     memories_text = MemoryService.format_for_prompt(memories)
-    instructions = Instructions(state, user=user, memories_text=memories_text).build_instructions()
+    instructions = Instructions(
+        state, 
+        user=user, 
+        memories_text=memories_text,
+        project_instructions=project_instructions
+    ).build_instructions()
     tool_context = {"user_id": user.id, "user_role": user.role, "conversation_id": conversation_id}
 
     async def event_generator():
