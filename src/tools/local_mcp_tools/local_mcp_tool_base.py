@@ -5,6 +5,9 @@ from src.tools.local_mcp_tools.local_mcp_tool_getOTHoursByJob import oa_get_ot_h
 from src.tools.local_mcp_tools.local_mcp_tool_getOTHoursAllJobs import oa_get_ot_hours_all_jobs
 from src.tools.local_mcp_tools.local_mcp_tool_searchUserMemories import oa_search_user_memories
 from src.tools.local_mcp_tools.local_mcp_tool_saveUserMemory import oa_save_user_memory
+from src.tools.local_mcp_tools.local_mcp_tool_updateUserMemory import oa_update_user_memory
+from src.tools.local_mcp_tools.local_mcp_tool_deleteUserMemory import oa_delete_user_memory
+from src.tools.local_mcp_tools.local_mcp_tool_getAllUserMemories import oa_get_all_user_memories
 from src.tools.local_mcp_tools.local_mcp_tool_searchConversations import oa_search_conversations
 from src.tools.local_mcp_tools.local_mcp_tool_getRecentConversations import oa_get_recent_conversations
 from src.tools.local_mcp_tools.local_mcp_tool_getConversationMessages import oa_get_conversation_messages
@@ -58,6 +61,9 @@ class OAToolBase:
 
         # Internal tools / Non-callable by user
         'save_user_memory':             oa_save_user_memory,
+        'update_user_memory':           oa_update_user_memory,
+        'delete_user_memory':           oa_delete_user_memory,
+        'get_all_user_memories':        oa_get_all_user_memories,
         'search_conversations':         oa_search_conversations,
         'get_recent_conversations':     oa_get_recent_conversations,
         'get_conversation_messages':    oa_get_conversation_messages,
@@ -85,6 +91,9 @@ class OAToolBase:
     USER_ID_TOOLS = {
         'search_user_memories',
         'save_user_memory',
+        'update_user_memory',
+        'delete_user_memory',
+        'get_all_user_memories',
         'search_conversations',
         'get_recent_conversations',
         'get_conversation_messages',

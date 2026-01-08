@@ -26,7 +26,10 @@ def get_memory(memory_id: int, user_id: int) -> dict | None:
                 SourceMessageId,
                 CreatedAt,
                 UpdatedAt,
-                IsActive
+                IsActive,
+                LastReferencedAt,
+                ReferenceCount,
+                ExpiresAt
             FROM {SCHEMA}.UserMemories
             WHERE Id = ? AND UserId = ?
             """,
@@ -34,10 +37,12 @@ def get_memory(memory_id: int, user_id: int) -> dict | None:
         )
         
         row = cursor.fetchone()
-        cursor.close()
         
         if row is None:
+            cursor.close()
             return None
         
         columns = [column[0] for column in cursor.description]
+        cursor.close()
+        
         return dict(zip(columns, row))

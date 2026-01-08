@@ -1,7 +1,7 @@
 from src.data.guardrails import BASE_GUARDRAILS, DEVELOPER_GUARDRAILS
 from src.tools.auth import User
 import time
-
+from src.data.memory_management import MEMORY_POLICY
 
 class Instructions:
     def __init__(self, state: dict, user: User = None, memories_text: str = None, project_instructions: str = None):
@@ -9,6 +9,7 @@ class Instructions:
         self.user = user
         self.memories_text = memories_text
         self.project_instructions = project_instructions
+        self.memory_management = MEMORY_POLICY
 
     def build_instructions(self) -> str:
         instructions = []
@@ -28,6 +29,10 @@ class Instructions:
             instructions.append("### USER MEMORIES")
             instructions.append(self.memories_text)
             instructions.append("")
+
+        instructions.append("### MEMORY MANAGEMENT POLICY")
+        instructions.append(self.memory_management)
+        instructions.append("")
 
         instructions.append("### BASE USER INSTRUCTIONS")
         instructions.extend(BASE_GUARDRAILS)

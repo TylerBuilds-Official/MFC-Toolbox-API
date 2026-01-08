@@ -6,7 +6,8 @@ def create_memory(
     content: str,
     memory_type: str = "fact",
     source_conversation_id: int = None,
-    source_message_id: int = None
+    source_message_id: int = None,
+    expires_at: str = None
 ) -> dict:
     """
     Create a new memory for a user.
@@ -17,6 +18,7 @@ def create_memory(
         memory_type: Type of memory ('fact', 'preference', 'project', 'skill', 'context')
         source_conversation_id: Optional conversation this memory came from
         source_message_id: Optional message this memory came from
+        expires_at: Optional expiration datetime (ISO format string)
         
     Returns:
         The created memory dictionary
@@ -27,7 +29,7 @@ def create_memory(
         cursor.execute(
             f"""
             INSERT INTO {SCHEMA}.UserMemories 
-                (UserId, MemoryType, Content, SourceConversationId, SourceMessageId)
+                (UserId, MemoryType, Content, SourceConversationId, SourceMessageId, ExpiresAt)
             OUTPUT 
                 INSERTED.Id,
                 INSERTED.UserId,
@@ -37,10 +39,13 @@ def create_memory(
                 INSERTED.SourceMessageId,
                 INSERTED.CreatedAt,
                 INSERTED.UpdatedAt,
-                INSERTED.IsActive
-            VALUES (?, ?, ?, ?, ?)
+                INSERTED.IsActive,
+                INSERTED.LastReferencedAt,
+                INSERTED.ReferenceCount,
+                INSERTED.ExpiresAt
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (user_id, memory_type, content, source_conversation_id, source_message_id)
+            (user_id, memory_type, content, source_conversation_id, source_message_id, expires_at)
         )
         
         row = cursor.fetchone()

@@ -82,9 +82,74 @@ TOOL_DEFINITIONS = [
                         "type": "string",
                         "enum": ["fact", "preference", "project", "skill", "context"],
                         "description": "Type of memory: fact (personal info), preference (likes/dislikes), project (what they're working on), skill (expertise), context (other important info)"
+                    },
+                    "expires_in_days": {
+                        "type": "integer",
+                        "description": "Optional: auto-expire this memory after N days. Use for temporary context like active projects (30-90 days) or time-sensitive info. Omit for permanent facts."
                     }
                 },
                 "required": ["content", "memory_type"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_user_memory",
+            "description": "Update an existing memory's content or type. Use when information changes (user changed roles, project completed, preference updated). Requires the memory_id from search results.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "memory_id": {
+                        "type": "integer",
+                        "description": "The ID of the memory to update (from search_user_memories results)"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "New content for the memory (optional)"
+                    },
+                    "memory_type": {
+                        "type": "string",
+                        "enum": ["fact", "preference", "project", "skill", "context"],
+                        "description": "New type for the memory (optional)"
+                    }
+                },
+                "required": ["memory_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_user_memory",
+            "description": "Delete a memory that is no longer relevant. Use when information is outdated, was saved incorrectly, or user explicitly asks to forget something.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "memory_id": {
+                        "type": "integer",
+                        "description": "The ID of the memory to delete (from search_user_memories results)"
+                    }
+                },
+                "required": ["memory_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_all_user_memories",
+            "description": "Get all memories about this user. Use when asked 'what do you know about me?' or when you need a complete picture of stored information. Can filter by memory type.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "memory_type": {
+                        "type": "string",
+                        "enum": ["fact", "preference", "project", "skill", "context"],
+                        "description": "Filter by type (optional)"
+                    }
+                },
+                "required": []
             }
         }
     },

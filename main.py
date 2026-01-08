@@ -16,6 +16,7 @@ from src.api.conversations import router as             conversations_router
 from src.api.conversation_projects import router as     conversation_projects_router
 from src.api.tools import router as                     tools_router
 from src.api.artifacts import router as         artifacts_router
+from src.api.memories import router as          memories_router
 from src.api.chat import router as              chat_router
 
 
@@ -36,6 +37,7 @@ app.include_router(conversation_projects_router, tags=["Conversation Projects"])
 app.include_router(conversations_router, tags=["Conversations"])
 app.include_router(tools_router, tags=["Tools"])
 app.include_router(artifacts_router, tags=["Artifacts"])
+app.include_router(memories_router, tags=["Memories"])
 app.include_router(chat_router, tags=["Chat"])
 
 

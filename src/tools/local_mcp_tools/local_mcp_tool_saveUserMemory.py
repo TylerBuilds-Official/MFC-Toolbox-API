@@ -4,6 +4,7 @@ from src.utils.memory_utils import MemoryService
 def oa_save_user_memory(
     content: str, 
     memory_type: str = "fact",
+    expires_in_days: int = None,
     user_id: int = None,
     conversation_id: int = None
 ):
@@ -20,6 +21,7 @@ def oa_save_user_memory(
     Args:
         content: The memory content to save
         memory_type: Type of memory - 'fact', 'preference', 'project', 'skill', 'context'
+        expires_in_days: Optional - auto-expire this memory after N days (useful for temporary context like "working on X project")
         user_id: Injected server-side, not provided by LLM
         conversation_id: Injected server-side, not provided by LLM
         
@@ -34,19 +36,27 @@ def oa_save_user_memory(
     if memory_type not in valid_types:
         return {"error": f"Invalid memory_type '{memory_type}'. Must be one of: {valid_types}"}
     
+    # Calculate expires_at if expires_in_days provided
+    expires_at = None
+    if expires_in_days is not None and expires_in_days > 0:
+        from datetime import datetime, timedelta
+        expires_at = (datetime.now() + timedelta(days=expires_in_days)).isoformat()
+    
     try:
         memory = MemoryService.create_memory(
             user_id=user_id,
             content=content,
             memory_type=memory_type,
-            source_conversation_id=conversation_id
+            source_conversation_id=conversation_id,
+            expires_at=expires_at
         )
         return {
             "success": True,
             "memory": {
                 "id": memory.id,
                 "type": memory.memory_type,
-                "content": memory.content
+                "content": memory.content,
+                "expires_at": memory.expires_at.isoformat() if memory.expires_at else None
             }
         }
     except Exception as e:
