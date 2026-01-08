@@ -12,8 +12,9 @@ from src.api.data.utils import router as        data_utils_router
 from src.api.data.sessions import router as     data_sessions_router
 from src.api.data.groups import router as       data_groups_router
 from src.api.admin import router as             admin_router
-from src.api.conversations import router as     conversations_router
-from src.api.tools import router as             tools_router
+from src.api.conversations import router as             conversations_router
+from src.api.conversation_projects import router as     conversation_projects_router
+from src.api.tools import router as                     tools_router
 from src.api.artifacts import router as         artifacts_router
 from src.api.chat import router as              chat_router
 
@@ -29,6 +30,9 @@ app.include_router(data_utils_router, tags=["Data Utils"])
 app.include_router(data_sessions_router, tags=["Data Sessions"])
 app.include_router(data_groups_router, tags=["Data Groups"])
 app.include_router(admin_router, tags=["Admin"])
+# IMPORTANT: conversation_projects must come BEFORE conversations
+# so /conversations/projects routes match before /conversations/{id}
+app.include_router(conversation_projects_router, tags=["Conversation Projects"])
 app.include_router(conversations_router, tags=["Conversations"])
 app.include_router(tools_router, tags=["Tools"])
 app.include_router(artifacts_router, tags=["Artifacts"])
