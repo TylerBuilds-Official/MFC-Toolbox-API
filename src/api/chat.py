@@ -362,6 +362,11 @@ async def chat_stream(
     async def event_generator():
         full_response = ""
         full_thinking = ""
+        
+        # Track content blocks for persistence
+        content_blocks = []
+        current_thinking_content = ""
+        current_text_content = ""
 
         try:
             yield f"data: {json.dumps({'type': 'meta', 'conversation_id': conversation_id})}\n\n"
@@ -375,12 +380,62 @@ async def chat_stream(
                         thinking_budget=thinking_budget,
                         tool_context=tool_context
                 ):
-                    if event.get("type") == "content":
-                        full_response += event.get("text", "")
-                    elif event.get("type") == "thinking":
-                        full_thinking += event.get("text", "")
-                    elif event.get("type") == "done":
+                    event_type = event.get("type")
+                    
+                    # Track content blocks based on event type
+                    if event_type == "thinking_start":
+                        current_thinking_content = ""
+                    elif event_type == "thinking":
+                        text = event.get("text", "")
+                        full_thinking += text
+                        current_thinking_content += text
+                    elif event_type == "thinking_end":
+                        # Finalize thinking block
+                        content_blocks.append({
+                            "type": "thinking",
+                            "content": current_thinking_content
+                        })
+                        current_thinking_content = ""
+                    elif event_type == "content_start":
+                        current_text_content = ""
+                    elif event_type == "content":
+                        text = event.get("text", "")
+                        full_response += text
+                        current_text_content += text
+                    elif event_type == "content_end":
+                        # Finalize text block
+                        if current_text_content:
+                            content_blocks.append({
+                                "type": "text",
+                                "content": current_text_content
+                            })
+                        current_text_content = ""
+                    elif event_type == "tool_start":
+                        # Add tool call block (params will be added on tool_end)
+                        content_blocks.append({
+                            "type": "tool_call",
+                            "name": event.get("name"),
+                            "params": {},
+                            "isComplete": False
+                        })
+                    elif event_type == "tool_end":
+                        # Update the matching tool block with params and result
+                        tool_name = event.get("name")
+                        for block in reversed(content_blocks):
+                            if block.get("type") == "tool_call" and block.get("name") == tool_name and not block.get("isComplete"):
+                                block["params"] = event.get("params", {})
+                                block["result"] = event.get("result")
+                                block["isComplete"] = True
+                                break
+                    elif event_type == "done":
                         full_response = event.get("full_response", full_response)
+                        # Handle any remaining text content not closed by content_end
+                        if current_text_content:
+                            content_blocks.append({
+                                "type": "text",
+                                "content": current_text_content
+                            })
+                    
                     yield f"data: {json.dumps(event)}\n\n"
             else:
                 for event in openai_message_handler.handle_message_stream(
@@ -389,13 +444,42 @@ async def chat_stream(
                         model=model,
                         tool_context=tool_context
                 ):
-                    if event.get("type") == "content":
-                        full_response += event.get("text", "")
-                    elif event.get("type") == "done":
+                    event_type = event.get("type")
+                    
+                    if event_type == "content":
+                        text = event.get("text", "")
+                        full_response += text
+                        current_text_content += text
+                    elif event_type == "tool_start":
+                        content_blocks.append({
+                            "type": "tool_call",
+                            "name": event.get("name"),
+                            "params": {},
+                            "isComplete": False
+                        })
+                    elif event_type == "tool_end":
+                        tool_name = event.get("name")
+                        for block in reversed(content_blocks):
+                            if block.get("type") == "tool_call" and block.get("name") == tool_name and not block.get("isComplete"):
+                                block["params"] = event.get("params", {})
+                                block["result"] = event.get("result")
+                                block["isComplete"] = True
+                                break
+                    elif event_type == "done":
                         full_response = event.get("full_response", full_response)
+                        # Add final text block if there's content
+                        if current_text_content:
+                            content_blocks.append({
+                                "type": "text",
+                                "content": current_text_content
+                            })
+                    
                     yield f"data: {json.dumps(event)}\n\n"
 
-            # Save assistant message (with thinking if present)
+            # Serialize content blocks to JSON for storage
+            content_blocks_json = json.dumps(content_blocks) if content_blocks else None
+
+            # Save assistant message (with thinking and content_blocks)
             assistant_message = MessageService.add_message(
                 conversation_id=conversation_id,
                 role="assistant",
@@ -404,7 +488,8 @@ async def chat_stream(
                 provider=provider,
                 tokens_used=None,
                 user_id=1,
-                thinking=full_thinking if full_thinking else None
+                thinking=full_thinking if full_thinking else None,
+                content_blocks=content_blocks_json
             )
 
             # Link any artifacts created during this response

@@ -234,16 +234,20 @@ class OpenAIMessageHandler:
                 
                 # Execute each tool call
                 for tc in tool_calls_buffer.values():
+                    try:
+                        tool_args = json.loads(tc["arguments"])
+                    except Exception:
+                        tool_args = {}
+                    
                     yield {"type": "tool_start", "name": tc["name"]}
                     
                     try:
-                        tool_args = json.loads(tc["arguments"])
                         result = self.tool_base.dispatch(tc["name"], context=tool_context, **tool_args)
                         result_str = json.dumps(result, default=str)
                     except Exception as e:
                         result_str = json.dumps({"error": str(e)})
                     
-                    yield {"type": "tool_end", "name": tc["name"], "result": result_str}
+                    yield {"type": "tool_end", "name": tc["name"], "params": tool_args, "result": result_str}
                     
                     messages.append({
                         "role": "tool",

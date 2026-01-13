@@ -9,7 +9,8 @@ class MessageService:
     def add_message(conversation_id: int, role: str,
                     content: str, model: str,
                     provider: str, tokens_used: int = None,
-                    user_id: int = None, thinking: str = None) -> Message:
+                    user_id: int = None, thinking: str = None,
+                    content_blocks: str = None) -> Message:
 
         data = add_message(
             conversation_id=conversation_id, 
@@ -19,7 +20,8 @@ class MessageService:
             provider=provider, 
             tokens_used=tokens_used, 
             user_id=user_id,
-            thinking=thinking
+            thinking=thinking,
+            content_blocks=content_blocks
         )
 
         return Message(
@@ -32,7 +34,8 @@ class MessageService:
             tokens_used=data.get("tokens_used"),
             created_at=data.get("created_at"),
             user_id=data.get("user_id"),
-            thinking=data.get("thinking")
+            thinking=data.get("thinking"),
+            content_blocks=data.get("content_blocks")
         )
 
 
@@ -51,7 +54,8 @@ class MessageService:
             tokens_used=data.get("tokens_used"),
             created_at=data.get("created_at"),
             user_id=data.get("user_id"),
-            thinking=data.get("thinking")
+            thinking=data.get("thinking"),
+            content_blocks=data.get("content_blocks")
         )
 
 
@@ -69,7 +73,8 @@ class MessageService:
                 tokens_used=message.get("tokens_used"),
                 created_at=message.get("created_at"),
                 user_id=message.get("user_id"),
-                thinking=message.get("thinking")
+                thinking=message.get("thinking"),
+                content_blocks=message.get("content_blocks")
             )
         for message in messages_data]
 

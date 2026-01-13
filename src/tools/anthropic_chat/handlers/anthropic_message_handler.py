@@ -379,7 +379,7 @@ class AnthropicMessageHandler:
                     except Exception as e:
                         result_str = json.dumps({"error": str(e)})
 
-                    yield {"type": "tool_end", "name": tool_use["name"], "result": result_str}
+                    yield {"type": "tool_end", "name": tool_use["name"], "params": tool_use["input"], "result": result_str}
 
                     tool_results.append({
                         "type": "tool_result",

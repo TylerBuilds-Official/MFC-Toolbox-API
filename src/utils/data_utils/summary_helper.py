@@ -46,8 +46,9 @@ class DataSummaryHelper:
         
         prompt = (
             f"You are a fabrication shop office assistant. You will be given a data session dict with tool info and sample data.\n"
-            f"Generate a brief 1-2 sentence summary (15-40 words) describing what this data shows.\n"
-            f"Focus on key metrics, time periods, or notable patterns.\n\n"
+            f"Generate a brief 1-4 sentence summary (15-124 words) describing what this data shows.\n"
+            f"Focus on key metrics, time periods, or notable patterns.\n"
+            f"\nPrefer concise and direct summaries over long padded explanations. Use the extra word count only when needed.\n\n"
             f"Session Dict:\n{session_dict}\n\n"
             f"Return ONLY the summary, no labels or extra text."
         )
@@ -60,7 +61,7 @@ class DataSummaryHelper:
                     max_tokens=400,
                     temperature=0.7
                 )
-                return response.choices[0].message.content.strip()[:300]
+                return response.choices[0].message.content.strip()
 
             elif provider == "anthropic":
                 response = client.messages.create(
@@ -68,7 +69,7 @@ class DataSummaryHelper:
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=400
                 )
-                return response.content[0].text.strip()[:300]
+                return response.content[0].text.strip()
 
         except Exception as e:
             print(f"[DataSummaryHelper] Summary generation failed: {e}")
