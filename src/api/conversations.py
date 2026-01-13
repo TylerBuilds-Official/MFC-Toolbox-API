@@ -35,9 +35,19 @@ async def get_conversation(conversation_id: int, user: User = Depends(require_ac
 
     messages = MessageService.get_messages(conversation_id)
 
+
+    # Derive conversation context from messages
+    # Provider from first message (conversation's original provider)
+    # Model from last message (pick up where they left off)
+
+    conversation_provider = messages[0].provider if messages else None
+    conversation_model = messages[-1].model if messages else None
+
     return {
         "conversation": conversation.to_dict(),
-        "messages": [msg.to_dict() for msg in messages]
+        "messages": [msg.to_dict() for msg in messages],
+        "conversation_provider": conversation_provider,
+        "conversation_model": conversation_model
     }
 
 

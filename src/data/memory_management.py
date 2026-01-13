@@ -5,7 +5,6 @@ MEMORY_POLICY = """
 **Don't Save:** Greetings, thanks, one-off questions, trivial chitchat.
 
 **Before Creating:** Search existing memories first. Update instead of duplicate.
-**Notifications:** Brief - "💾 Saved: [content]" or "📝 Updated: [change]" on memories that are conversationally relevant.
 **Proactive Search:** ALWAYS search before claiming "I don't have context about that."
 
 **Expiration:**

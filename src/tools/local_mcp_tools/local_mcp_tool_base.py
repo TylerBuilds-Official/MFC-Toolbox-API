@@ -109,12 +109,13 @@ class OAToolBase:
         'create_data_artifact',
     }
 
-    def dispatch(self, tool_name: str, context: dict = None, **kwargs):
+    def dispatch(self, name: str, context: dict = None, **kwargs):
         """
         Dispatch a tool call to its executor.
         
         Args:
-            tool_name: Name of the tool to execute
+            name: Name of the tool to execute (renamed from tool_name to avoid 
+                  collision with tool parameters that use 'tool_name' as a filter)
             context: Server-side context (user_id, user_role, conversation_id, etc.)
                      Injected for tools that need it, not provided by LLM
             **kwargs: Tool parameters from LLM
@@ -123,27 +124,27 @@ class OAToolBase:
             Tool execution result
         """
         # Check if tool exists in executor registry
-        if tool_name not in self.TOOL_REGISTRY:
-            return {"error": f"Tool '{tool_name}' not found."}
+        if name not in self.TOOL_REGISTRY:
+            return {"error": f"Tool '{name}' not found."}
         
         # Permission check (defense in depth)
         user_role = context.get("user_role", "pending") if context else "pending"
-        tool_def = get_tool(tool_name)
+        tool_def = get_tool(name)
         
         if tool_def:
             # Tool is in the centralized registry - check permissions
             if not can_use_tool(user_role, tool_def["category"]):
                 return {
-                    "error": f"Permission denied: insufficient privileges for tool '{tool_name}'."
+                    "error": f"Permission denied: insufficient privileges for tool '{name}'."
                 }
         # Note: Tools not yet in centralized registry are allowed through
         # TODO: Migrate all tools to centralized registry for full coverage
         
         # Inject context for tools that need it
         if context:
-            if tool_name in self.USER_ID_TOOLS and 'user_id' in context:
+            if name in self.USER_ID_TOOLS and 'user_id' in context:
                 kwargs['user_id'] = context['user_id']
-            if tool_name in self.CONVERSATION_ID_TOOLS and 'conversation_id' in context:
+            if name in self.CONVERSATION_ID_TOOLS and 'conversation_id' in context:
                 kwargs['conversation_id'] = context['conversation_id']
         
-        return self.TOOL_REGISTRY[tool_name](**kwargs)
+        return self.TOOL_REGISTRY[name](**kwargs)
