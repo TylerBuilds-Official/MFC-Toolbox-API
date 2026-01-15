@@ -53,11 +53,10 @@ class OAToolBase:
         'search_user_memories':         oa_search_user_memories,
         'get_active_jobs':              oa_get_active_jobs,
 
-        # REMOVED:
-        # 'get_job_details': oa_get_job_details,
 
         'get_jobs_by_pm':               oa_get_jobs_by_pm,
         "get_jobs_shipping_soon":       oa_get_jobs_shipping_soon,
+
 
         # Internal tools / Non-callable by user
         'save_user_memory':             oa_save_user_memory,
@@ -71,6 +70,7 @@ class OAToolBase:
         'search_data_sessions':         oa_search_data_sessions,
         'get_data_sessions':            oa_get_data_sessions,
         'get_data_session_details':     oa_get_data_session_details,
+
 
         # Employee / Company data tools
         'get_all_company_data':             oa_get_all_company_data,
@@ -94,9 +94,11 @@ class OAToolBase:
         'update_user_memory',
         'delete_user_memory',
         'get_all_user_memories',
+
         'search_conversations',
         'get_recent_conversations',
         'get_conversation_messages',
+
         'create_data_artifact',
         'search_data_sessions',
         'get_data_sessions',

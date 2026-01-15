@@ -10,6 +10,8 @@ from src.tools.openai_chat.handlers.openai_message_handler import OpenAIMessageH
 
 from src.tools.sql_tools import close_mysql_pool, close_mssql_pool, close_voltron_pool
 
+from src.utils.agent_utils import agent_registry
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,6 +30,10 @@ async def lifespan(app: FastAPI):
         # Store message handlers directly for endpoint access
         app.state.openai_message_handler = openai_message_handler
         app.state.anthropic_message_handler = anthropic_message_handler
+        
+        # Store agent registry reference (singleton, but available via app.state too)
+        app.state.agent_registry = agent_registry
+        print("[STARTUP] Agent registry initialized - WebSocket endpoint: /agent/ws")
 
     except Exception as e:
         print(f"Error initializing: {e}")
@@ -39,4 +45,5 @@ async def lifespan(app: FastAPI):
     close_mysql_pool()
     close_mssql_pool()
     close_voltron_pool()
-
+    
+    print("[SHUTDOWN] Application shutdown complete")

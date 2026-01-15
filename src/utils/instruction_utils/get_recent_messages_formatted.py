@@ -1,7 +1,7 @@
 from src.tools.sql_tools.messages.get_recent_messages import get_recent_exchanges
 
 
-def get_recent_exchanges_formatted(conversation_id: int, limit: int = 4) -> str:
+def get_recent_exchanges_formatted(conversation_id: int, limit: int = 6) -> str:
     """Format recent exchanges for injection into system prompt."""
     exchanges = get_recent_exchanges(conversation_id, limit)
     
