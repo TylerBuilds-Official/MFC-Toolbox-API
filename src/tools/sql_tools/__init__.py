@@ -39,6 +39,7 @@ from src.tools.sql_tools.messages.get_message import get_message
 from src.tools.sql_tools.messages.get_messages import get_messages
 from src.tools.sql_tools.messages.admin_delete_messages import admin_delete_messages_for_conversation
 from src.tools.sql_tools.messages.update_message_artifact import update_message_artifact
+from src.tools.sql_tools.messages.get_recent_messages import get_recent_exchanges
 
 
 # ============================================
@@ -193,6 +194,7 @@ __all__ = [
     "get_messages",
     "admin_delete_messages_for_conversation",
     "update_message_artifact",
+    "get_recent_exchanges",
     
     # Conversation State
     "get_conversation_state",

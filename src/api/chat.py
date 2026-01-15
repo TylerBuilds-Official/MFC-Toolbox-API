@@ -166,6 +166,7 @@ async def chat(message: str, model: str = None,
         memories_text = MemoryService.format_for_prompt(memories)
 
         state = state_handler.get_state()
+        state["conversation_id"] = conversation_id  # Add for recent exchanges lookup
         instructions_text = Instructions(
             state, 
             user=user, 
@@ -349,6 +350,7 @@ async def chat_stream(
 
     # Build instructions with memories and project instructions
     state = state_handler.get_state()
+    state["conversation_id"] = conversation_id  # Add for recent exchanges lookup
     memories = MemoryService.get_memories(user.id, limit=settings.memory_limit)
     memories_text = MemoryService.format_for_prompt(memories)
     instructions = Instructions(

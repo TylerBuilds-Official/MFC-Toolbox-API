@@ -24,6 +24,7 @@ class OpenAIConversationHandler:
         
         # Get current state and build instructions
         state = self.state_handler.get_state()
+        state["conversation_id"] = conversation_id  # Add for recent exchanges lookup
         instructions = Instructions(state, user=user, memories_text=memories_text).build_instructions()
         
         # Build tool context for user-aware tools
