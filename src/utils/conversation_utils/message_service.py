@@ -1,4 +1,4 @@
-from src.tools.sql_tools import (get_messages, add_message, get_message, 
+from src.tools.sql_tools import (get_messages, get_messages_paginated, add_message, get_message, 
                                  update_message_artifact, link_artifacts_to_message)
 from src.utils.conversation_utils.message import Message
 
@@ -77,6 +77,50 @@ class MessageService:
                 content_blocks=message.get("content_blocks")
             )
         for message in messages_data]
+
+    @staticmethod
+    def get_messages_paginated(conversation_id: int, limit: int = 50, before_id: int = None) -> dict:
+        """
+        Get messages with cursor-based pagination.
+        
+        Args:
+            conversation_id: The conversation to fetch messages from
+            limit: Maximum number of messages to return (default 50)
+            before_id: If provided, only return messages older than this ID
+        
+        Returns:
+            dict with:
+                - messages: List of Message objects in chronological order
+                - has_more: Boolean indicating if there are older messages
+                - oldest_id: The ID of the oldest message returned (use as next cursor)
+                - total_count: Total number of messages in conversation
+        """
+        result = get_messages_paginated(conversation_id, limit=limit, before_id=before_id)
+        
+        # Convert raw dicts to Message objects
+        messages = [
+            Message(
+                id=msg.get("id"),
+                conversation_id=msg.get("conversation_id"),
+                role=msg.get("role"),
+                content=msg.get("content"),
+                model=msg.get("model"),
+                provider=msg.get("provider"),
+                tokens_used=msg.get("tokens_used"),
+                created_at=msg.get("created_at"),
+                user_id=msg.get("user_id"),
+                thinking=msg.get("thinking"),
+                content_blocks=msg.get("content_blocks")
+            )
+            for msg in result["messages"]
+        ]
+        
+        return {
+            "messages": messages,
+            "has_more": result["has_more"],
+            "oldest_id": result["oldest_id"],
+            "total_count": result["total_count"]
+        }
 
     @staticmethod
     def link_artifacts(conversation_id: int, message_id: int) -> list[str]:
