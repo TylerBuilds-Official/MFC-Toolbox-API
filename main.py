@@ -19,6 +19,7 @@ from src.api.artifacts import router as         artifacts_router
 from src.api.memories import router as          memories_router
 from src.api.chat import router as              chat_router
 from src.api.agent_ws import router as          agent_router
+from src.api.connectors import router as        connectors_router
 
 
 app = build_app()
@@ -27,6 +28,7 @@ app.include_router(auth_router, tags=["Auth"])
 app.include_router(health_router, tags=["Health"])
 app.include_router(models_router, tags=["Models"])
 app.include_router(settings_router, tags=["Settings"])
+app.include_router(connectors_router, tags=["Connectors"])
 app.include_router(user_info_router, tags=["User Info"])
 app.include_router(data_utils_router, tags=["Data Utils"])
 app.include_router(data_sessions_router, tags=["Data Sessions"])

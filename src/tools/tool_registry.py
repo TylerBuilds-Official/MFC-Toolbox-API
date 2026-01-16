@@ -43,6 +43,7 @@ TOOL_CATEGORIES = {
     "data_sessions": "user",   # Data session tools (search/retrieve past data sessions)
     "artifacts": "user",       # Artifact creation tools
     "company_info": "user",    # Company/employee lookups
+    "filesystem": "user",      # Filesystem operations (via agent connector)
 }
 
 
@@ -74,6 +75,14 @@ from src.tools.local_mcp_tools.company_data import (
     oa_get_company_info,
     oa_get_contact_info,
     oa_get_all_company_data,
+)
+# Filesystem Tools (Agent Connector)
+from src.tools.local_mcp_tools.filesystem_tools import (
+    oa_fs_list_directory,
+    oa_fs_read_file,
+    oa_fs_write_file,
+    oa_fs_delete_file,
+    oa_fs_get_allowed_folders,
 )
 from src.tools.local_mcp_tools.local_mcp_tool_searchUserMemories import oa_search_user_memories
 from src.tools.local_mcp_tools.local_mcp_tool_saveUserMemory import oa_save_user_memory
@@ -877,6 +886,104 @@ TOOL_REGISTRY: list[dict] = [
             "required": []
         },
         "executor": oa_get_all_company_data,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    
+    # =========================================================================
+    # Filesystem Tools (Agent Connector)
+    # =========================================================================
+    {
+        "name": "fs_list_directory",
+        "description": "List contents of a directory on the user's computer. Returns files and folders with metadata. Requires the user to have the Filesystem Connector enabled and the path to be in their allowed folders. Use fs_get_allowed_folders first to see what paths are accessible.",
+        "category": "filesystem",
+        "display_category": "Filesystem",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Directory path to list (e.g., 'C:\\Projects' or 'D:\\Data')"
+                }
+            },
+            "required": ["path"]
+        },
+        "executor": oa_fs_list_directory,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "fs_read_file",
+        "description": "Read the contents of a text file on the user's computer. Returns the file content as text. Use for reading code files, config files, logs, text documents, etc. Requires read permission on the containing folder.",
+        "category": "filesystem",
+        "display_category": "Filesystem",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Full path to the file to read (e.g., 'C:\\Projects\\app\\config.json')"
+                }
+            },
+            "required": ["path"]
+        },
+        "executor": oa_fs_read_file,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "fs_write_file",
+        "description": "Write content to a file on the user's computer. Creates the file if it doesn't exist, overwrites if it does. Use for creating/updating code files, configs, scripts, etc. Requires write permission on the containing folder.",
+        "category": "filesystem",
+        "display_category": "Filesystem",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Full path to the file to write (e.g., 'C:\\Projects\\output.txt')"
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Content to write to the file"
+                }
+            },
+            "required": ["path", "content"]
+        },
+        "executor": oa_fs_write_file,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "fs_delete_file",
+        "description": "Delete a file on the user's computer. This is permanent and cannot be undone. Requires delete permission on the containing folder. Use with caution.",
+        "category": "filesystem",
+        "display_category": "Filesystem",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Full path to the file to delete"
+                }
+            },
+            "required": ["path"]
+        },
+        "executor": oa_fs_delete_file,
+        "chat_toolbox": False,
+        "data_visualization": False,
+    },
+    {
+        "name": "fs_get_allowed_folders",
+        "description": "Get the list of folders the user has allowed access to via the Filesystem Connector. Shows which paths you can read/write/delete. Call this first before attempting file operations to understand what's accessible.",
+        "category": "filesystem",
+        "display_category": "Filesystem",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "executor": oa_fs_get_allowed_folders,
         "chat_toolbox": False,
         "data_visualization": False,
     },

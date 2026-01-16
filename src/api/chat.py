@@ -374,7 +374,7 @@ async def chat_stream(
             yield f"data: {json.dumps({'type': 'meta', 'conversation_id': conversation_id})}\n\n"
 
             if provider == "anthropic":
-                for event in anthropic_message_handler.handle_message_stream(
+                async for event in anthropic_message_handler.handle_message_stream(
                         instructions=instructions,
                         message=message,
                         model=model,
@@ -440,7 +440,7 @@ async def chat_stream(
                     
                     yield f"data: {json.dumps(event)}\n\n"
             else:
-                for event in openai_message_handler.handle_message_stream(
+                async for event in openai_message_handler.handle_message_stream(
                         instructions=instructions,
                         message=message,
                         model=model,

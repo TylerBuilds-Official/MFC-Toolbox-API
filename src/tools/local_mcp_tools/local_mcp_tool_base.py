@@ -1,3 +1,5 @@
+import asyncio
+import inspect
 from src.tools.local_mcp_tools.local_mcp_tool_getJobInfo import oa_get_job_info
 from src.tools.local_mcp_tools.local_mcp_tool_getAllJobInfo import oa_get_jobs
 from src.tools.local_mcp_tools.local_mcp_tool_getMachineProductionData import oa_get_machine_production
@@ -32,6 +34,16 @@ from src.tools.local_mcp_tools.company_data import (oa_get_all_company_data,
                                                     oa_search_employees,
                                                     )
 
+# Filesystem Tools (Agent Connector) - These are async!
+from src.tools.local_mcp_tools.filesystem_tools import (
+    oa_fs_list_directory,
+    oa_fs_read_file,
+    oa_fs_write_file,
+    oa_fs_delete_file,
+    oa_fs_get_allowed_folders,
+    ASYNC_TOOLS,
+)
+
 # Import permission checking from centralized registry
 from src.tools.tool_registry import get_tool, can_use_tool
 
@@ -42,6 +54,9 @@ class OAToolBase:
     
     Handles routing tool calls to their executors and injecting
     server-side context (like user_id) for tools that need it.
+    
+    Supports both sync and async tools. Use dispatch_async() when
+    calling from async context to properly await async tools.
     """
     
     TOOL_REGISTRY = {
@@ -85,6 +100,12 @@ class OAToolBase:
         'list_departments':                 oa_list_departments,
         'search_employees':                 oa_search_employees,
 
+        # Filesystem Tools (Agent Connector) - async tools
+        'fs_list_directory':                oa_fs_list_directory,
+        'fs_read_file':                     oa_fs_read_file,
+        'fs_write_file':                    oa_fs_write_file,
+        'fs_delete_file':                   oa_fs_delete_file,
+        'fs_get_allowed_folders':           oa_fs_get_allowed_folders,
     }
     
     # Tools that need user_id injected
@@ -103,6 +124,13 @@ class OAToolBase:
         'search_data_sessions',
         'get_data_sessions',
         'get_data_session_details',
+
+        # Filesystem tools need user_id for permission checking
+        'fs_list_directory',
+        'fs_read_file',
+        'fs_write_file',
+        'fs_delete_file',
+        'fs_get_allowed_folders',
     }
     
     # Tools that also need conversation_id injected
@@ -111,23 +139,16 @@ class OAToolBase:
         'create_data_artifact',
     }
 
-    def dispatch(self, name: str, context: dict = None, **kwargs):
+    def _prepare_dispatch(self, name: str, context: dict = None, **kwargs):
         """
-        Dispatch a tool call to its executor.
-
-        Args:
-            name: Name of the tool to execute (renamed from tool_name to avoid
-                  collision with tool parameters that use 'tool_name' as a filter)
-            context: Server-side context (user_id, user_role, conversation_id, etc.)
-                     Injected for tools that need it, not provided by LLM
-            **kwargs: Tool parameters from LLM
-
+        Common preparation for dispatch - checks permissions, injects context.
+        
         Returns:
-            Tool execution result
+            Tuple of (executor, kwargs) or (None, error_dict)
         """
         # Check if tool exists in executor registry
         if name not in self.TOOL_REGISTRY:
-            return {"error": f"Tool '{name}' not found."}
+            return None, {"error": f"Tool '{name}' not found."}
 
         # Permission check (defense in depth)
         user_role = context.get("user_role", "pending") if context else "pending"
@@ -136,11 +157,9 @@ class OAToolBase:
         if tool_def:
             # Tool is in the centralized registry - check permissions
             if not can_use_tool(user_role, tool_def["category"]):
-                return {
+                return None, {
                     "error": f"Permission denied: insufficient privileges for tool '{name}'."
                 }
-        # Note: Tools not yet in centralized registry are allowed through
-        # TODO: Migrate all tools to centralized registry for full coverage
 
         # Inject context for tools that need it
         if context:
@@ -149,4 +168,71 @@ class OAToolBase:
             if name in self.CONVERSATION_ID_TOOLS and 'conversation_id' in context:
                 kwargs['conversation_id'] = context['conversation_id']
 
-        return self.TOOL_REGISTRY[name](**kwargs)
+        return self.TOOL_REGISTRY[name], kwargs
+
+    def dispatch(self, name: str, context: dict = None, **kwargs):
+        """
+        Dispatch a tool call to its executor (sync version).
+        
+        WARNING: This will NOT properly handle async tools!
+        Use dispatch_async() from async contexts.
+
+        Args:
+            name: Name of the tool to execute
+            context: Server-side context (user_id, user_role, conversation_id, etc.)
+            **kwargs: Tool parameters from LLM
+
+        Returns:
+            Tool execution result
+        """
+        executor, kwargs_or_error = self._prepare_dispatch(name, context, **kwargs)
+        
+        if executor is None:
+            return kwargs_or_error  # This is the error dict
+        
+        # Check if tool is async
+        if name in ASYNC_TOOLS:
+            # Try to run in event loop
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Can't await from sync context when loop is running
+                    # This is a limitation - caller should use dispatch_async
+                    return {"error": f"Tool '{name}' is async and must be called from async context. Use dispatch_async()."}
+                else:
+                    return loop.run_until_complete(executor(**kwargs_or_error))
+            except RuntimeError:
+                return asyncio.run(executor(**kwargs_or_error))
+        
+        return executor(**kwargs_or_error)
+
+    async def dispatch_async(self, name: str, context: dict = None, **kwargs):
+        """
+        Dispatch a tool call to its executor (async version).
+        
+        Use this from async contexts to properly handle async tools.
+
+        Args:
+            name: Name of the tool to execute
+            context: Server-side context (user_id, user_role, conversation_id, etc.)
+            **kwargs: Tool parameters from LLM
+
+        Returns:
+            Tool execution result
+        """
+        executor, kwargs_or_error = self._prepare_dispatch(name, context, **kwargs)
+        
+        if executor is None:
+            return kwargs_or_error  # This is the error dict
+        
+        # Check if tool is async
+        if name in ASYNC_TOOLS or asyncio.iscoroutinefunction(executor):
+            return await executor(**kwargs_or_error)
+        else:
+            # Run sync tool in executor to not block event loop
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, lambda: executor(**kwargs_or_error))
+    
+    def is_async_tool(self, name: str) -> bool:
+        """Check if a tool requires async execution."""
+        return name in ASYNC_TOOLS

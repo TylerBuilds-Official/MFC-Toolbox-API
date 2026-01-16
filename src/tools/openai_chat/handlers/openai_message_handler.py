@@ -1,5 +1,5 @@
 import json
-from typing import Generator, Any
+from typing import AsyncGenerator, Any
 
 import openai
 
@@ -18,6 +18,20 @@ class OpenAIMessageHandler:
         self.client = client
         self.model = "gpt-4o"
         self.tool_base = OAToolBase()
+
+    def _get_token_param(self, value: int = 16384) -> dict:
+        """
+        Get the correct token limit parameter based on model.
+        
+        Newer models (gpt-4.1+, gpt-5+, o1, o3) use max_completion_tokens.
+        Older models (gpt-3.5, gpt-4, gpt-4o) use max_tokens.
+        """
+        uses_completion_tokens = any(x in self.model for x in ["gpt-4.1", "gpt-5", "o1", "o3"])
+        
+        if uses_completion_tokens:
+            return {"max_completion_tokens": value}
+        else:
+            return {"max_tokens": value}
 
     # =========================================================================
     # Synchronous Handler (existing)
@@ -56,6 +70,7 @@ class OpenAIMessageHandler:
             "model": self.model,
             "messages": messages,
             "tools": filtered_tools,
+            **self._get_token_param(32384),
         }
 
         if "gpt-5" in self.model:
@@ -81,26 +96,29 @@ class OpenAIMessageHandler:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                tools=filtered_tools
+                tools=filtered_tools,
+                **self._get_token_param(32384)
             )
             assistant_message = response.choices[0].message
 
         return assistant_message.content
 
     # =========================================================================
-    # Streaming Handler
+    # Async Streaming Handler
     # =========================================================================
 
-    def handle_message_stream(
+    async def handle_message_stream(
         self, 
         instructions: str, 
         message: str, 
         history: list = None, 
         model: str = 'gpt-4o',
         tool_context: dict = None
-    ) -> Generator[dict[str, Any], None, str]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Stream a message response from OpenAI.
+        
+        This is an ASYNC generator - use `async for event in handler.handle_message_stream(...):`
         
         Yields dict events:
             - {"type": "content", "text": "..."} - Text content chunk
@@ -114,16 +132,14 @@ class OpenAIMessageHandler:
             message: Current user message
             history: Optional list of previous messages
             model: OpenAI model to use
-            
-        Returns:
-            The complete response text (after generator exhausted)
+            tool_context: Server-side context for tools
         """
         if history is None:
             history = []
 
         if model not in VALID_OA_MODELS:
             yield {"type": "error", "message": f"Invalid model: {model}"}
-            return ""
+            return
             
         self.change_model(model)
 
@@ -134,22 +150,21 @@ class OpenAIMessageHandler:
         full_response = ""
         
         try:
-            full_response = yield from self._stream_with_tools(messages, tool_context=tool_context)
+            async for event in self._stream_with_tools(messages, tool_context=tool_context):
+                if event.get("type") == "content":
+                    full_response += event.get("text", "")
+                yield event
         except Exception as e:
             yield {"type": "error", "message": str(e)}
-            return ""
+            return
             
         yield {"type": "done", "full_response": full_response}
-        return full_response
 
-    def _stream_with_tools(self, messages: list, tool_context: dict = None) -> Generator[dict[str, Any], None, str]:
+    async def _stream_with_tools(self, messages: list, tool_context: dict = None) -> AsyncGenerator[dict[str, Any], None]:
         """
-        Internal method to handle streaming with potential tool calls.
+        Internal async method to handle streaming with potential tool calls.
         Uses a loop to handle multiple rounds of tool calls.
-        
-        Returns the full accumulated response text.
         """
-        full_response = ""
         max_tool_rounds = 10  # Safety limit
         tool_round = 0
 
@@ -165,6 +180,7 @@ class OpenAIMessageHandler:
                 "messages": messages,
                 "tools": filtered_tools,
                 "stream": True,
+                **self._get_token_param(32384),
             }
             
             if "gpt-5" in self.model:
@@ -172,6 +188,7 @@ class OpenAIMessageHandler:
             else:
                 chat_params["temperature"] = 0.7
 
+            # Note: OpenAI's sync streaming is used here, but tool execution is async
             stream = self.client.chat.completions.create(**chat_params)
             
             # Accumulators for this stream
@@ -190,7 +207,6 @@ class OpenAIMessageHandler:
                 # Handle content delta
                 if delta.content:
                     content_buffer += delta.content
-                    full_response += delta.content
                     yield {"type": "content", "text": delta.content}
                 
                 # Handle tool call deltas (accumulate)
@@ -232,7 +248,7 @@ class OpenAIMessageHandler:
                 }
                 messages.append(assistant_msg)
                 
-                # Execute each tool call
+                # Execute each tool call ASYNC
                 for tc in tool_calls_buffer.values():
                     try:
                         tool_args = json.loads(tc["arguments"])
@@ -242,7 +258,12 @@ class OpenAIMessageHandler:
                     yield {"type": "tool_start", "name": tc["name"]}
                     
                     try:
-                        result = self.tool_base.dispatch(tc["name"], context=tool_context, **tool_args)
+                        # Use async dispatch for proper event loop handling
+                        result = await self.tool_base.dispatch_async(
+                            tc["name"], 
+                            context=tool_context, 
+                            **tool_args
+                        )
                         result_str = json.dumps(result, default=str)
                     except Exception as e:
                         result_str = json.dumps({"error": str(e)})
@@ -260,8 +281,6 @@ class OpenAIMessageHandler:
             
             # No tool calls or finished normally - exit loop
             break
-        
-        return full_response
 
     # =========================================================================
     # Helper Methods

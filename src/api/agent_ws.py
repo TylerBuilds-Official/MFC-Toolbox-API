@@ -1,5 +1,10 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from src.utils.agent_utils import agent_registry
+from src.utils.connector_utils import (
+    upsert_registered_agent,
+    update_agent_last_seen,
+    get_registered_agent_by_username
+)
 
 router = APIRouter(prefix="/agent")
 
@@ -29,12 +34,13 @@ async def agent_websocket(websocket: WebSocket):
             await websocket.close(code=1002, reason="Expected registration message")
             return
         
-        # Register the agent
+        # Extract registration info
         hostname = registration.get("hostname", "unknown")
         username = registration.get("username", "unknown")
         version = registration.get("version", "unknown")
         capabilities = registration.get("capabilities", [])
         
+        # Register in-memory (for active connections)
         agent = await agent_registry.register(
             websocket=websocket,
             hostname=hostname,
@@ -42,6 +48,21 @@ async def agent_websocket(websocket: WebSocket):
             version=version,
             capabilities=capabilities
         )
+        
+        # Persist to database
+        # Note: We use username as a placeholder for user_id until we can map it
+        # The actual Azure AD user_id will be linked when user accesses settings
+        try:
+            upsert_registered_agent(
+                user_id=username.lower(),  # Temporary - will be replaced with Azure AD ID
+                username=username,
+                hostname=hostname,
+                agent_version=version
+            )
+            print(f"[AGENT_WS] Persisted agent registration to DB: {username}")
+        except Exception as db_error:
+            # Don't fail connection if DB persistence fails
+            print(f"[AGENT_WS] Warning: Could not persist agent to DB: {db_error}")
         
         # Send acknowledgment
         await websocket.send_json({
@@ -92,6 +113,17 @@ async def check_agent_status(username: str):
             "version": agent.version,
             "capabilities": agent.capabilities,
             "connected_at": agent.connected_at.isoformat()
+        }
+    
+    # Check DB for historical registration even if not currently connected
+    db_agent = get_registered_agent_by_username(username)
+    if db_agent:
+        return {
+            "connected": False,
+            "hostname": db_agent.hostname,
+            "version": db_agent.agent_version,
+            "last_seen": db_agent.last_seen_at.isoformat() if db_agent.last_seen_at else None,
+            "first_registered": db_agent.first_registered_at.isoformat() if db_agent.first_registered_at else None
         }
     
     return {"connected": False}

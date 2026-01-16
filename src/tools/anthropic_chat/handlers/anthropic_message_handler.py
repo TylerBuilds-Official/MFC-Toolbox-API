@@ -1,5 +1,5 @@
 import json
-from typing import Generator, Any
+from typing import AsyncGenerator, Any
 
 from anthropic import Anthropic
 
@@ -144,10 +144,10 @@ class AnthropicMessageHandler:
         return text_content, thinking_content
 
     # =========================================================================
-    # Streaming Handler
+    # Async Streaming Handler
     # =========================================================================
 
-    def handle_message_stream(
+    async def handle_message_stream(
         self,
         instructions: str,
         message: str,
@@ -156,9 +156,11 @@ class AnthropicMessageHandler:
         enable_thinking: bool = False,
         thinking_budget: int = 10000,
         tool_context: dict = None
-    ) -> Generator[dict[str, Any], None, str]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Stream a message response from Anthropic with optional extended thinking.
+        
+        This is an ASYNC generator - use `async for event in handler.handle_message_stream(...):`
         
         Yields dict events:
             - {"type": "thinking_start"} - Thinking block starting
@@ -179,16 +181,14 @@ class AnthropicMessageHandler:
             model: Anthropic model to use
             enable_thinking: Whether to enable extended thinking
             thinking_budget: Token budget for thinking (if enabled)
-            
-        Returns:
-            The complete response text (after generator exhausted)
+            tool_context: Server-side context for tools
         """
         if history is None:
             history = []
 
         if model not in VALID_ANT_MODELS:
             yield {"type": "error", "message": f"Invalid model: {model}"}
-            return ""
+            return
 
         self.change_model(model)
 
@@ -199,36 +199,45 @@ class AnthropicMessageHandler:
         full_thinking = ""
 
         try:
-            full_response, full_thinking = yield from self._stream_with_tools(
+            async for event in self._stream_with_tools(
                 instructions=instructions,
                 messages=messages,
                 enable_thinking=enable_thinking,
                 thinking_budget=thinking_budget,
                 tool_context=tool_context
-            )
+            ):
+                # Track full response/thinking from events
+                if event.get("type") == "content":
+                    full_response += event.get("text", "")
+                elif event.get("type") == "thinking":
+                    full_thinking += event.get("text", "")
+                elif event.get("type") == "done":
+                    # Use the values from done event if provided
+                    full_response = event.get("full_response", full_response)
+                    full_thinking = event.get("full_thinking", full_thinking)
+                
+                yield event
+                
         except Exception as e:
             yield {"type": "error", "message": str(e)}
-            return ""
+            return
 
         yield {
             "type": "done", 
             "full_response": full_response,
             "full_thinking": full_thinking
         }
-        return full_response
 
-    def _stream_with_tools(
+    async def _stream_with_tools(
         self,
         instructions: str,
         messages: list,
         enable_thinking: bool = False,
         thinking_budget: int = 10000,
         tool_context: dict = None
-    ) -> Generator[dict[str, Any], None, tuple[str, str]]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
-        Internal method to handle streaming with potential tool calls.
-        
-        Returns tuple of (full_response, full_thinking).
+        Internal async method to handle streaming with potential tool calls.
         """
         full_response = ""
         full_thinking = ""
@@ -252,13 +261,11 @@ class AnthropicMessageHandler:
             }
 
             # Add extended thinking if enabled
-            # TODO: Adjust thinking budget availability per permission level
             if enable_thinking:
                 params["thinking"] = {
                     "type": "enabled",
                     "budget_tokens": thinking_budget
                 }
-                # max_tokens must be greater than thinking budget
                 params["max_tokens"] = thinking_budget + 8000
 
             # Track current block type and tool uses
@@ -270,6 +277,8 @@ class AnthropicMessageHandler:
             content_buffer = ""
             thinking_buffer = ""
 
+            # Note: We use sync streaming here because Anthropic's stream() is sync
+            # but the tool execution is async, which is what matters for agent commands
             with self.client.messages.stream(**params) as stream:
                 for event in stream:
                     event_type = event.type
@@ -339,14 +348,10 @@ class AnthropicMessageHandler:
             # Check if we need to handle tool calls
             if stop_reason == "tool_use" and tool_uses:
                 # Build assistant message with all content blocks
-                # IMPORTANT: Use the content blocks from final_message to preserve
-                # required fields like 'signature' on thinking blocks
                 assistant_content = []
                 
                 for block in final_message.content:
                     if block.type == "thinking":
-                        # Include the signature field - required by Anthropic API
-                        # when sending thinking blocks back in conversation history
                         assistant_content.append({
                             "type": "thinking",
                             "thinking": block.thinking,
@@ -370,11 +375,16 @@ class AnthropicMessageHandler:
                     "content": assistant_content
                 })
 
-                # Execute tools and build results
+                # Execute tools ASYNC and build results
                 tool_results = []
                 for tool_use in tool_uses:
                     try:
-                        result = self.tool_base.dispatch(tool_use["name"], context=tool_context, **tool_use["input"])
+                        # Use async dispatch for proper event loop handling
+                        result = await self.tool_base.dispatch_async(
+                            tool_use["name"], 
+                            context=tool_context, 
+                            **tool_use["input"]
+                        )
                         result_str = json.dumps(result, default=str)
                     except Exception as e:
                         result_str = json.dumps({"error": str(e)})
@@ -401,8 +411,6 @@ class AnthropicMessageHandler:
 
             # No tool calls or finished normally - exit loop
             break
-
-        return full_response, full_thinking
 
     # =========================================================================
     # Helper Methods

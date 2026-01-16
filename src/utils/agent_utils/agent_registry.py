@@ -1,9 +1,15 @@
 import asyncio
 import uuid
+import concurrent.futures
+import threading
 from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Optional
 from fastapi import WebSocket
+
+
+# Global thread pool for sync command execution
+_executor = concurrent.futures.ThreadPoolExecutor(max_workers=10, thread_name_prefix="agent_cmd_")
 
 
 @dataclass
@@ -17,7 +23,7 @@ class ConnectedAgent:
     capabilities: list[str]
     connected_at: datetime = field(default_factory=datetime.now)
     
-    # For tracking pending commands
+    # For tracking pending commands - uses thread-safe futures
     pending_commands: dict = field(default_factory=dict)
 
 
@@ -139,8 +145,8 @@ class AgentRegistry:
             "params": params
         }
         
-        # Create a future to wait for response
-        response_future = asyncio.Future()
+        # Use thread-safe Future for cross-thread coordination
+        response_future = concurrent.futures.Future()
         agent.pending_commands[command_id] = response_future
         
         try:
@@ -148,11 +154,82 @@ class AgentRegistry:
             await agent.websocket.send_json(command)
             
             # Wait for response with timeout
-            response = await asyncio.wait_for(response_future, timeout=timeout)
+            # Use run_in_executor to not block the event loop while waiting
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None, 
+                lambda: response_future.result(timeout=timeout)
+            )
             return response
             
-        except asyncio.TimeoutError:
+        except concurrent.futures.TimeoutError:
             raise TimeoutError(f"Agent did not respond within {timeout}s")
+        finally:
+            # Cleanup
+            agent.pending_commands.pop(command_id, None)
+    
+    def send_command_sync(
+        self,
+        username: str,
+        module: str,
+        action: str,
+        params: dict,
+        timeout: float = 30.0
+    ) -> dict:
+        """
+        Synchronous version of send_command for use from sync contexts.
+        
+        Uses polling with short sleeps to allow the event loop to run
+        between checks, avoiding deadlock.
+        """
+        agent = self.get_agent(username)
+        if not agent:
+            raise ValueError(f"No agent connected for user: {username}")
+        
+        if module not in agent.capabilities:
+            raise ValueError(f"Agent does not have capability: {module}")
+        
+        command_id = str(uuid.uuid4())
+        command = {
+            "command_id": command_id,
+            "module": module,
+            "action": action,
+            "params": params
+        }
+        
+        # Use thread-safe Future
+        response_future = concurrent.futures.Future()
+        agent.pending_commands[command_id] = response_future
+        
+        # Get the event loop
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.get_event_loop()
+        
+        try:
+            # Schedule send on event loop
+            async def _send():
+                await agent.websocket.send_json(command)
+            
+            send_future = asyncio.run_coroutine_threadsafe(_send(), loop)
+            
+            # Wait for send to complete (should be fast)
+            try:
+                send_future.result(timeout=5.0)
+            except Exception as e:
+                raise ValueError(f"Failed to send command: {e}")
+            
+            # Poll for response with small sleeps to allow event loop to run
+            import time
+            start = time.time()
+            while time.time() - start < timeout:
+                if response_future.done():
+                    return response_future.result()
+                time.sleep(0.01)  # 10ms sleep to yield CPU
+            
+            raise TimeoutError(f"Agent did not respond within {timeout}s")
+            
         finally:
             # Cleanup
             agent.pending_commands.pop(command_id, None)
@@ -174,6 +251,7 @@ class AgentRegistry:
         
         future = agent.pending_commands.get(command_id)
         if future and not future.done():
+            # Thread-safe: set_result works from any thread
             future.set_result(response)
             return True
         
