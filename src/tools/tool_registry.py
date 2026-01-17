@@ -2,16 +2,16 @@
 Centralized Tool Registry
 
 Single source of truth for all tools available in the system.
-Handles:
+Contains:
 - Tool definitions (name, description, parameters)
 - Permission categories (category → role-based access)
 - Display categories (display_category → UI grouping)
-- Execution routing
-- Visibility flags:
-  - chat_toolbox: Show in chat sidebar UI (default True)
-  - data_visualization: Show in data page (default False)
+- Execution references (executor function)
+- Context injection flags (needs_user_id, needs_conversation_id, is_async)
+- Visibility flags (chat_toolbox, data_visualization)
+
+All helper functions are in tool_utils.py
 """
-from typing import Callable, Any
 
 # =============================================================================
 # Role Hierarchy
@@ -20,10 +20,11 @@ from typing import Callable, Any
 # A role can access anything at or below its level
 
 ROLE_HIERARCHY = {
-    "pending": 0,    # Newly registered, awaiting approval
-    "user": 10,      # Standard user
-    "manager": 100,  # Elevated access for supervisors/managers
-    "admin": 500,    # Full access
+    "pending": 0,           # Newly registered, awaiting approval
+    "user": 10,             # Standard user
+    "manager": 100,         # Elevated access for supervisors/managers
+#   "new_role_one": 200,    # Example new role
+    "admin": 500,           # Full access
 }
 
 
@@ -33,33 +34,55 @@ ROLE_HIERARCHY = {
 # Maps category name to minimum role required
 
 TOOL_CATEGORIES = {
-    "job_read": "user",        # View job data
-    "job_write": "admin",      # Modify job data (future)
-    "reports": "user",         # Run reports
-    "manager_reports": "manager",  # Sensitive reports (OT, labor costs, etc.)
-    "admin_tools": "admin",    # System administration
-    "memory": "user",          # Memory tools (search/save memories)
-    "conversation": "user",    # Conversation tools (search/retrieve past conversations)
-    "data_sessions": "user",   # Data session tools (search/retrieve past data sessions)
-    "artifacts": "user",       # Artifact creation tools
-    "company_info": "user",    # Company/employee lookups
-    "filesystem": "user",      # Filesystem operations (via agent connector)
+    "job_read": "user",             # View job data
+    "job_write": "admin",           # Modify job data (future)
+    "reports": "user",              # Run reports
+    "manager_reports": "manager",   # Sensitive reports (OT, labor costs, etc.)
+    "admin_tools": "admin",         # System administration
+    "memory": "user",               # Memory tools (search/save memories)
+    "conversation": "user",         # Conversation tools (search/retrieve past conversations)
+    "data_sessions": "user",        # Data session tools (search/retrieve past data sessions)
+    "artifacts": "user",            # Artifact creation tools
+    "company_info": "user",         # Company/employee lookups
+    "filesystem": "user",           # Filesystem operations (via agent connector)
 }
 
 
 # =============================================================================
-# Tool Registry
+# Executor Imports
 # =============================================================================
-# Import executors here to keep registry self-contained
+# Import all executor functions
+
+# Job Tools
 from src.tools.local_mcp_tools.local_mcp_tool_getAllJobInfo import oa_get_jobs
 from src.tools.local_mcp_tools.local_mcp_tool_getJobInfo import oa_get_job_info
 from src.tools.local_mcp_tools.local_mcp_tool_getMachineProductionData import oa_get_machine_production
 from src.tools.local_mcp_tools.local_mcp_tool_getOTHoursByJob import oa_get_ot_hours_by_job
 from src.tools.local_mcp_tools.local_mcp_tool_getOTHoursAllJobs import oa_get_ot_hours_all_jobs
 from src.tools.local_mcp_tools.local_mcp_tool_getActiveJobs import oa_get_active_jobs
-# REMOVED: from src.tools.local_mcp_tools.local_mcp_tool_getJobDetails import oa_get_job_details
 from src.tools.local_mcp_tools.local_mcp_tool_getJobsByPM import oa_get_jobs_by_pm
 from src.tools.local_mcp_tools.local_mcp_tool_getJobsShippingSoon import oa_get_jobs_shipping_soon
+
+# Memory Tools
+from src.tools.local_mcp_tools.local_mcp_tool_searchUserMemories import oa_search_user_memories
+from src.tools.local_mcp_tools.local_mcp_tool_saveUserMemory import oa_save_user_memory
+from src.tools.local_mcp_tools.local_mcp_tool_updateUserMemory import oa_update_user_memory
+from src.tools.local_mcp_tools.local_mcp_tool_deleteUserMemory import oa_delete_user_memory
+from src.tools.local_mcp_tools.local_mcp_tool_getAllUserMemories import oa_get_all_user_memories
+
+# Conversation Tools
+from src.tools.local_mcp_tools.local_mcp_tool_searchConversations import oa_search_conversations
+from src.tools.local_mcp_tools.local_mcp_tool_getRecentConversations import oa_get_recent_conversations
+from src.tools.local_mcp_tools.local_mcp_tool_getConversationMessages import oa_get_conversation_messages
+
+# Data Session Tools
+from src.tools.local_mcp_tools.local_mcp_tool_searchDataSessions import oa_search_data_sessions
+from src.tools.local_mcp_tools.local_mcp_tool_getDataSessions import oa_get_data_sessions
+from src.tools.local_mcp_tools.local_mcp_tool_getDataSessionDetails import oa_get_data_session_details
+
+# Artifact Tools
+from src.tools.local_mcp_tools.local_mcp_tool_createDataArtifact import oa_create_data_artifact
+
 # Company Data Tools
 from src.tools.local_mcp_tools.company_data import (
     oa_get_employee,
@@ -76,69 +99,63 @@ from src.tools.local_mcp_tools.company_data import (
     oa_get_contact_info,
     oa_get_all_company_data,
 )
+
 # Filesystem Tools (Agent Connector)
 from src.tools.local_mcp_tools.filesystem_tools import (
+    # Directory operations
     oa_fs_list_directory,
+    oa_fs_create_directory,
+    oa_fs_directory_tree,
+    # File operations
     oa_fs_read_file,
     oa_fs_write_file,
+    oa_fs_edit_file,
     oa_fs_delete_file,
+    oa_fs_copy_file,
+    oa_fs_move_file,
+    # Search & info
+    oa_fs_search_files,
+    oa_fs_get_file_info,
+    oa_fs_file_exists,
+    # Non-async
     oa_fs_get_allowed_folders,
 )
-from src.tools.local_mcp_tools.local_mcp_tool_searchUserMemories import oa_search_user_memories
-from src.tools.local_mcp_tools.local_mcp_tool_saveUserMemory import oa_save_user_memory
-from src.tools.local_mcp_tools.local_mcp_tool_updateUserMemory import oa_update_user_memory
-from src.tools.local_mcp_tools.local_mcp_tool_deleteUserMemory import oa_delete_user_memory
-from src.tools.local_mcp_tools.local_mcp_tool_getAllUserMemories import oa_get_all_user_memories
-from src.tools.local_mcp_tools.local_mcp_tool_searchConversations import oa_search_conversations
-from src.tools.local_mcp_tools.local_mcp_tool_getRecentConversations import oa_get_recent_conversations
-from src.tools.local_mcp_tools.local_mcp_tool_getConversationMessages import oa_get_conversation_messages
-from src.tools.local_mcp_tools.local_mcp_tool_createDataArtifact import oa_create_data_artifact
-# Data Session Tools (AI-internal)
-from src.tools.local_mcp_tools.local_mcp_tool_searchDataSessions import oa_search_data_sessions
-from src.tools.local_mcp_tools.local_mcp_tool_getDataSessions import oa_get_data_sessions
-from src.tools.local_mcp_tools.local_mcp_tool_getDataSessionDetails import oa_get_data_session_details
 
+
+# =============================================================================
+# Tool Registry
+# =============================================================================
 
 TOOL_REGISTRY: list[dict] = [
+    # =========================================================================
+    # Job Tools
+    # =========================================================================
     {
-        # Identity
         "name": "get_all_job_info",
         "description": "Get a list of all jobs with basic info (job number, name, contractor, location, etc.)",
-        
-        # Permissions
         "category": "job_read",
-        
-        # UI Display
         "display_category": "Jobs",
-        
-        # Parameters (OpenAI function calling format)
+
         "parameters": {
             "type": "object",
             "properties": {},
             "required": []
         },
-        
-        # Execution
+
         "executor": oa_get_jobs,
-        
-        # Visibility
         "chat_toolbox": True,
         "data_visualization": True,
         "default_chart_type": "table",
-        "normalizer": "job_list",  # Custom normalizer key (optional)
+        "normalizer": "job_list",
     },
+
+
     {
-        # Identity
         "name": "get_job_info",
         "description": "Get comprehensive job information including hours, dates, financials, production data (pieces/weight), and status. Merges data from Tekla and ScheduleShare.",
-        
-        # Permissions
         "category": "job_read",
-        
-        # UI Display
         "display_category": "Jobs",
-        
-        # Parameters (OpenAI function calling format)
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -149,27 +166,20 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["job_number"]
         },
-        
-        # Execution
+
         "executor": oa_get_job_info,
-        
-        # Visibility
-        "chat_toolbox":       True,
+        "chat_toolbox": True,
         "data_visualization": True,
         "default_chart_type": "card",
     },
+
+
     {
-        # Identity
         "name": "get_machine_production",
         "description": "Get daily production counts per CNC machine (pieces processed and total weight) over a date range.",
-        
-        # Permissions
         "category": "reports",
-        
-        # UI Display
         "display_category": "Production",
-        
-        # Parameters (OpenAI function calling format)
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -180,14 +190,12 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": []
         },
-        
-        # Execution
+
         "executor": oa_get_machine_production,
-        
-        # Visibility
         "chat_toolbox": True,
         "data_visualization": True,
         "default_chart_type": "line",
+
         "chart_config": {
             "x_axis": "ProductionDate",
             "series_by": "Machine",
@@ -195,17 +203,17 @@ TOOL_REGISTRY: list[dict] = [
             "y_axis_label": "Pieces Processed",
             "x_axis_label": "Date",
         },
-        "normalizer": None,  # Use generic normalizer
+
+        "normalizer": None,
     },
-    
-    # =========================================================================
-    # ScheduleShare Jobs (Voltron)
-    # =========================================================================
+
+
     {
         "name": "get_active_jobs",
         "description": "Get all active jobs from ScheduleShare. Optionally include on-hold jobs.",
         "category": "job_read",
         "display_category": "Jobs",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -216,17 +224,20 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": []
         },
+
         "executor": oa_get_active_jobs,
         "chat_toolbox": True,
         "data_visualization": True,
         "default_chart_type": "table",
     },
-    # REMOVED: get_job_details - consolidated into get_job_info
+
+
     {
         "name": "get_jobs_by_pm",
         "description": "Get all jobs for a specific Project Manager from ScheduleShare.",
         "category": "job_read",
         "display_category": "Jobs",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -241,6 +252,7 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["pm_name"]
         },
+
         "executor": oa_get_jobs_by_pm,
         "chat_toolbox": True,
         "data_visualization": True,
@@ -252,11 +264,14 @@ TOOL_REGISTRY: list[dict] = [
             "y_axis_label": "Total Hours"
         }
     },
+
+
     {
         "name": "get_jobs_shipping_soon",
         "description": "Get jobs shipping within a specified number of days. Useful for tracking upcoming deadlines.",
         "category": "job_read",
         "display_category": "Jobs",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -267,6 +282,7 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": []
         },
+
         "executor": oa_get_jobs_shipping_soon,
         "chat_toolbox": True,
         "data_visualization": True,
@@ -278,6 +294,7 @@ TOOL_REGISTRY: list[dict] = [
             "y_axis_label": "Days Until Ship",
         },
     },
+
     
     # =========================================================================
     # Manager Reports (OT, Labor Costs, etc.)
@@ -287,17 +304,21 @@ TOOL_REGISTRY: list[dict] = [
         "description": "Get overtime hours for a specific job, broken down by employee. Shows who worked OT, total hours, and date ranges.",
         "category": "manager_reports",
         "display_category": "Overtime",
+
         "parameters": {
             "type": "object",
             "properties": {
+
                 "job_number": {
                     "type": "string",
                     "description": "The job number to query (e.g. '6516')"
                 },
+
                 "start_date": {
                     "type": "string",
                     "description": "Start date in YYYY-MM-DD format (defaults to 7 days ago)"
                 },
+
                 "end_date": {
                     "type": "string",
                     "description": "End date in YYYY-MM-DD format (defaults to today)"
@@ -305,6 +326,7 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["job_number"]
         },
+
         "executor": oa_get_ot_hours_by_job,
         "chat_toolbox": True,
         "data_visualization": True,
@@ -316,11 +338,14 @@ TOOL_REGISTRY: list[dict] = [
             "y_axis_label": "OT Hours",
         },
     },
+
+
     {
         "name": "get_ot_hours_all_jobs",
         "description": "Get overtime hours summary across all jobs. Shows total OT per job, employee counts, and date ranges.",
         "category": "manager_reports",
         "display_category": "Overtime",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -335,6 +360,7 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": []
         },
+
         "executor": oa_get_ot_hours_all_jobs,
         "chat_toolbox": True,
         "data_visualization": True,
@@ -346,15 +372,17 @@ TOOL_REGISTRY: list[dict] = [
             "y_axis_label": "OT Hours",
         },
     },
+
     
     # =========================================================================
-    # Memory Tools (AI-internal)
+    # Memory Tools (AI-internal, need user_id)
     # =========================================================================
     {
         "name": "search_user_memories",
         "description": "Search your memories about this user from past conversations. Use when the user references something from before, asks 'do you remember', or when historical context would help answer their question.",
         "category": "memory",
         "display_category": "Memory",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -369,15 +397,20 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["query"]
         },
+
         "executor": oa_search_user_memories,
-        "chat_toolbox": False,  # AI-internal tool
+        "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
     },
+
+
     {
         "name": "save_user_memory",
         "description": "Save an important fact about the user to remember for future conversations. Use when you learn something significant like: their role, projects they're working on, preferences, skills, or important context. Be concise but specific.",
         "category": "memory",
         "display_category": "Memory",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -397,15 +430,21 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["content", "memory_type"]
         },
+
         "executor": oa_save_user_memory,
-        "chat_toolbox": False,  # AI-internal tool
+        "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
+        "needs_conversation_id": True,
     },
+
+
     {
         "name": "update_user_memory",
         "description": "Update an existing memory's content or type. Use when information changes (user changed roles, project completed, preference updated). Requires the memory_id from search results.",
         "category": "memory",
         "display_category": "Memory",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -425,15 +464,20 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["memory_id"]
         },
+
         "executor": oa_update_user_memory,
         "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
     },
+
+
     {
         "name": "delete_user_memory",
         "description": "Delete a memory that is no longer relevant. Use when information is outdated, was saved incorrectly, or user explicitly asks to forget something.",
         "category": "memory",
         "display_category": "Memory",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -444,15 +488,20 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["memory_id"]
         },
+
         "executor": oa_delete_user_memory,
         "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
     },
+
+
     {
         "name": "get_all_user_memories",
         "description": "Get all memories about this user. Use when asked 'what do you know about me?' or when you need a complete picture of stored information. Can filter by memory type.",
         "category": "memory",
         "display_category": "Memory",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -464,19 +513,23 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": []
         },
+
         "executor": oa_get_all_user_memories,
         "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
     },
+
     
     # =========================================================================
-    # Conversation Tools (AI-internal)
+    # Conversation Tools (AI-internal, need user_id)
     # =========================================================================
     {
         "name": "search_conversations",
         "description": "Search past conversations by keyword. Searches titles, summaries, and message content. Returns ranked results with context snippets showing where matches occurred.",
         "category": "conversation",
         "display_category": "Conversations",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -491,15 +544,20 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["query"]
         },
+
         "executor": oa_search_conversations,
-        "chat_toolbox": False,  # AI-internal tool
+        "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
     },
+
+
     {
         "name": "get_recent_conversations",
         "description": "Get recent conversations by time window. Use for 'what did we discuss yesterday', 'conversations from last week', 'show me recent chats'.",
         "category": "conversation",
         "display_category": "Conversations",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -514,15 +572,20 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": []
         },
+
         "executor": oa_get_recent_conversations,
-        "chat_toolbox": False,  # AI-internal tool
+        "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
     },
+
+
     {
         "name": "get_conversation_messages",
         "description": "Fetch full message history for a specific conversation. Use AFTER search_conversations or get_recent_conversations when you need complete context beyond the summary.",
         "category": "conversation",
         "display_category": "Conversations",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -533,19 +596,23 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["conversation_id"]
         },
+
         "executor": oa_get_conversation_messages,
-        "chat_toolbox": False,  # AI-internal tool
+        "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
     },
+
     
     # =========================================================================
-    # Data Session Tools (AI-internal)
+    # Data Session Tools (AI-internal, need user_id)
     # =========================================================================
     {
         "name": "search_data_sessions",
         "description": "Search the user's data sessions by keyword. Searches titles, AI summaries, tool names, and parameters. Use when the user references past data queries, asks about reports they ran, or when you need to find previous data analysis. Returns ranked results with relevance scores.",
         "category": "data_sessions",
         "display_category": "Data Sessions",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -560,15 +627,20 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["query"]
         },
+
         "executor": oa_search_data_sessions,
-        "chat_toolbox": False,  # AI-internal tool
+        "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
     },
+
+
     {
         "name": "get_data_sessions",
         "description": "Get data sessions with flexible filtering and sorting. Use for 'show my recent data', 'what reports did I run last week', 'my first data sessions'. Supports date ranges, tool filters, and ascending/descending order.",
         "category": "data_sessions",
         "display_category": "Data Sessions",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -606,15 +678,19 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": []
         },
+
         "executor": oa_get_data_sessions,
-        "chat_toolbox": False,  # AI-internal tool
+        "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
     },
+
     {
         "name": "get_data_session_details",
         "description": "Get full details for a specific data session including result preview. Use AFTER search_data_sessions or get_data_sessions when you need: the exact parameters used, actual data to summarize, or parent session info for lineage. Returns session metadata and preview of result rows.",
         "category": "data_sessions",
         "display_category": "Data Sessions",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -629,19 +705,23 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["session_id"]
         },
+
         "executor": oa_get_data_session_details,
-        "chat_toolbox": False,  # AI-internal tool
+        "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
     },
+
     
     # =========================================================================
-    # Artifact Tools (AI-internal)
+    # Artifact Tools (AI-internal, need user_id and conversation_id)
     # =========================================================================
     {
         "name": "create_data_artifact",
         "description": "Create a clickable data visualization card in the chat response. Use this when the user asks for data that would benefit from interactive visualization - job info, production reports, overtime summaries, etc. The artifact appears as a card the user can click to open a full data visualization page. Use parent_session_id when re-running or refining a previous query to maintain lineage.",
         "category": "artifacts",
         "display_category": "Artifacts",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -669,10 +749,14 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["target_tool"]
         },
+
         "executor": oa_create_data_artifact,
-        "chat_toolbox": False,  # AI-internal tool
+        "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
+        "needs_conversation_id": True,
     },
+
     
     # =========================================================================
     # Company Data Tools (AI-internal)
@@ -682,6 +766,7 @@ TOOL_REGISTRY: list[dict] = [
         "description": "Look up a specific employee's contact info by name. Supports fuzzy matching (e.g., 'blake', 'Blake Reed', 'blak' all work). Returns position, email, extension, and cell. Use for 'what's [name]'s email/phone/extension?'",
         "category": "company_info",
         "display_category": "Company",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -692,15 +777,19 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["employee_name"]
         },
+
         "executor": oa_get_employee,
         "chat_toolbox": False,
         "data_visualization": False,
     },
+
+
     {
         "name": "get_employee_email",
         "description": "Quick email lookup for a specific employee. Supports fuzzy name matching. Use when user just needs an email address.",
         "category": "company_info",
         "display_category": "Company",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -711,15 +800,19 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["employee_name"]
         },
+
         "executor": oa_get_employee_email,
         "chat_toolbox": False,
         "data_visualization": False,
     },
+
+
     {
         "name": "get_employee_phone",
         "description": "Get phone contact info (extension and cell) for a specific employee. Supports fuzzy name matching.",
         "category": "company_info",
         "display_category": "Company",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -730,15 +823,19 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["employee_name"]
         },
+
         "executor": oa_get_employee_phone,
         "chat_toolbox": False,
         "data_visualization": False,
     },
+
+
     {
         "name": "get_employees_by_department",
         "description": "List all employees in a department. Valid departments: executive, it, purchasing, project_mgmt, estimating, admin, safety, sales. Also accepts aliases like 'pm', 'tech', 'dev', 'office', 'leadership', 'exec'.",
         "category": "company_info",
         "display_category": "Company",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -749,43 +846,55 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["department"]
         },
+
         "executor": oa_get_employees_by_department,
         "chat_toolbox": False,
         "data_visualization": False,
     },
+
+
     {
         "name": "get_project_managers",
         "description": "Get all project managers. Shortcut for common query - returns list of PMs with contact info.",
         "category": "company_info",
         "display_category": "Company",
+
         "parameters": {
             "type": "object",
             "properties": {},
             "required": []
         },
+
         "executor": oa_get_project_managers,
         "chat_toolbox": False,
         "data_visualization": False,
     },
+
+
     {
         "name": "get_it_team",
         "description": "Get all IT/Development team members. Returns list with contact info.",
         "category": "company_info",
         "display_category": "Company",
+
         "parameters": {
             "type": "object",
             "properties": {},
             "required": []
         },
+
         "executor": oa_get_it_team,
         "chat_toolbox": False,
         "data_visualization": False,
     },
+
+
     {
         "name": "search_employees",
         "description": "Search employees by name, position, or email. Use as fallback when get_employee returns nothing, or for role-based queries like 'who handles purchasing' or 'find estimators'.",
         "category": "company_info",
         "display_category": "Company",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -796,57 +905,73 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["search_term"]
         },
+
         "executor": oa_search_employees,
         "chat_toolbox": False,
         "data_visualization": False,
     },
+
+
     {
         "name": "get_employee_directory_summary",
         "description": "Get a compact, scannable employee directory. Returns all employees with position and extension, one per line. Low token cost overview.",
         "category": "company_info",
         "display_category": "Company",
+
         "parameters": {
             "type": "object",
             "properties": {},
             "required": []
         },
+
         "executor": oa_get_employee_directory_summary,
         "chat_toolbox": False,
         "data_visualization": False,
     },
+
+
     {
         "name": "get_department_summary",
         "description": "Get a summary of all departments and their members. Shows org structure at a glance.",
         "category": "company_info",
         "display_category": "Company",
+
         "parameters": {
             "type": "object",
             "properties": {},
             "required": []
         },
+
         "executor": oa_get_department_summary,
         "chat_toolbox": False,
         "data_visualization": False,
     },
+
+
     {
         "name": "list_departments",
         "description": "Get list of valid department names. Use for disambiguation or when unsure which department to query.",
         "category": "company_info",
         "display_category": "Company",
+
         "parameters": {
             "type": "object",
             "properties": {},
             "required": []
         },
+
         "executor": oa_list_departments,
         "chat_toolbox": False,
         "data_visualization": False,
     },
+
+
     {
         "name": "get_company_info",
         "description": "Get company information for MFC or Master Machining. Returns address, phone, fax, website, and description. Use 'mfc' (default) or 'mmm'/'master machining' for entity parameter.",
         "category": "company_info",
         "display_category": "Company",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -857,47 +982,58 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": []
         },
+
         "executor": oa_get_company_info,
         "chat_toolbox": False,
         "data_visualization": False,
     },
+
+
     {
         "name": "get_contact_info",
         "description": "Get MFC office address, phone, fax, and website. Use for 'where is the office', 'company phone number', 'MFC address', directions questions.",
         "category": "company_info",
         "display_category": "Company",
+
         "parameters": {
             "type": "object",
             "properties": {},
             "required": []
         },
+
         "executor": oa_get_contact_info,
         "chat_toolbox": False,
         "data_visualization": False,
     },
+
+
     {
         "name": "get_all_company_data",
         "description": "Get complete company data dump including all employees and business info. Use sparingly - prefer targeted tools for most queries. High token cost.",
         "category": "company_info",
         "display_category": "Company",
+
         "parameters": {
             "type": "object",
             "properties": {},
             "required": []
         },
+
         "executor": oa_get_all_company_data,
         "chat_toolbox": False,
         "data_visualization": False,
     },
+
     
     # =========================================================================
-    # Filesystem Tools (Agent Connector)
+    # Filesystem Tools (Agent Connector - async, need user_id)
     # =========================================================================
     {
         "name": "fs_list_directory",
         "description": "List contents of a directory on the user's computer. Returns files and folders with metadata. Requires the user to have the Filesystem Connector enabled and the path to be in their allowed folders. Use fs_get_allowed_folders first to see what paths are accessible.",
         "category": "filesystem",
         "display_category": "Filesystem",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -908,15 +1044,21 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["path"]
         },
+
         "executor": oa_fs_list_directory,
         "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
+        "is_async": True,
     },
+
+
     {
         "name": "fs_read_file",
         "description": "Read the contents of a text file on the user's computer. Returns the file content as text. Use for reading code files, config files, logs, text documents, etc. Requires read permission on the containing folder.",
         "category": "filesystem",
         "display_category": "Filesystem",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -927,15 +1069,21 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["path"]
         },
+
         "executor": oa_fs_read_file,
         "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
+        "is_async": True,
     },
+
+
     {
         "name": "fs_write_file",
         "description": "Write content to a file on the user's computer. Creates the file if it doesn't exist, overwrites if it does. Use for creating/updating code files, configs, scripts, etc. Requires write permission on the containing folder.",
         "category": "filesystem",
         "display_category": "Filesystem",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -950,15 +1098,21 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["path", "content"]
         },
+
         "executor": oa_fs_write_file,
         "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
+        "is_async": True,
     },
+
+
     {
         "name": "fs_delete_file",
         "description": "Delete a file on the user's computer. This is permanent and cannot be undone. Requires delete permission on the containing folder. Use with caution.",
         "category": "filesystem",
         "display_category": "Filesystem",
+
         "parameters": {
             "type": "object",
             "properties": {
@@ -969,204 +1123,277 @@ TOOL_REGISTRY: list[dict] = [
             },
             "required": ["path"]
         },
+
         "executor": oa_fs_delete_file,
         "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
+        "is_async": True,
     },
+
+
     {
         "name": "fs_get_allowed_folders",
         "description": "Get the list of folders the user has allowed access to via the Filesystem Connector. Shows which paths you can read/write/delete. Call this first before attempting file operations to understand what's accessible.",
         "category": "filesystem",
         "display_category": "Filesystem",
+
         "parameters": {
             "type": "object",
             "properties": {},
             "required": []
         },
+
         "executor": oa_fs_get_allowed_folders,
         "chat_toolbox": False,
         "data_visualization": False,
+        "needs_user_id": True,
+        # Note: fs_get_allowed_folders is NOT async - doesn't need agent.
     },
-]
 
 
-# =============================================================================
-# Helper Functions
-# =============================================================================
+    {
+        "name": "fs_create_directory",
+        "description": "Create a directory on the user's computer. Creates parent directories automatically if needed. Requires write permission on the parent folder.",
+        "category": "filesystem",
+        "display_category": "Filesystem",
 
-def get_role_level(role: str) -> int:
-    """Get numeric level for a role. Returns 0 for unknown roles."""
-    return ROLE_HIERARCHY.get(role, 0)
-
-
-def can_use_tool(user_role: str, tool_category: str) -> bool:
-    """
-    Check if a user role has permission to use tools in a category.
-    
-    Args:
-        user_role: The user's role (e.g., "user", "admin")
-        tool_category: The tool's category (e.g., "job_read")
-        
-    Returns:
-        True if user has sufficient permissions
-    """
-    required_role = TOOL_CATEGORIES.get(tool_category, "admin")  # Default to admin if unknown
-    user_level = get_role_level(user_role)
-    required_level = get_role_level(required_role)
-    return user_level >= required_level
-
-
-def get_tool(tool_name: str) -> dict | None:
-    """Get a tool definition by name."""
-    for tool in TOOL_REGISTRY:
-        if tool["name"] == tool_name:
-            return tool
-    return None
-
-
-def get_executor(tool_name: str) -> Callable | None:
-    """Get the executor function for a tool."""
-    tool = get_tool(tool_name)
-    if tool:
-        return tool.get("executor")
-    return None
-
-
-def get_chat_tools(user_role: str) -> list[dict]:
-    """
-    Get tools formatted for OpenAI/Anthropic function calling.
-    Filtered by user's permission level.
-    
-    This is for the AI - it sees ALL permitted tools.
-    
-    Args:
-        user_role: The user's role
-        
-    Returns:
-        List of tools in OpenAI function format
-    """
-    tools = []
-    for tool in TOOL_REGISTRY:
-        if can_use_tool(user_role, tool["category"]):
-            tools.append({
-                "type": "function",
-                "function": {
-                    "name": tool["name"],
-                    "description": tool["description"],
-                    "parameters": tool["parameters"],
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Directory path to create (e.g., 'C:\\Projects\\NewFolder')"
+                },
+                "parents": {
+                    "type": "boolean",
+                    "description": "Create parent directories if they don't exist (default true)"
                 }
-            })
-    return tools
+            },
+            "required": ["path"]
+        },
+
+        "executor": oa_fs_create_directory,
+        "chat_toolbox": False,
+        "data_visualization": False,
+        "needs_user_id": True,
+        "is_async": True,
+    },
 
 
-def get_chat_toolbox_tools(user_role: str) -> list[dict]:
-    """
-    Get tools for the chat sidebar UI toolbox.
-    Filtered by permission AND chat_toolbox visibility flag.
-    
-    Only includes tools users should manually trigger (not AI-internal tools).
-    
-    Args:
-        user_role: The user's role
-        
-    Returns:
-        List of tools in simplified format for UI, with display_category for grouping
-    """
-    tools = []
-    for tool in TOOL_REGISTRY:
-        # Must be visible in chat toolbox (default True)
-        if not tool.get("chat_toolbox", True):
-            continue
-        # Must have permission
-        if not can_use_tool(user_role, tool["category"]):
-            continue
-        
-        # Convert parameters to simpler format for frontend
-        simple_params = _convert_params_to_simple(tool["parameters"])
-        
-        tool_entry = {
-            "name": tool["name"],
-            "description": tool["description"],
-            "parameters": simple_params,
-            "display_category": tool.get("display_category", "Other"),
-        }
-        
-        # Include data viz info if available (for potential charting)
-        if tool.get("data_visualization"):
-            tool_entry["data_visualization"] = True
-            tool_entry["default_chart_type"] = tool.get("default_chart_type", "table")
-            if tool.get("chart_config"):
-                tool_entry["chart_config"] = tool["chart_config"]
-        
-        tools.append(tool_entry)
-    
-    return tools
+    {
+        "name": "fs_directory_tree",
+        "description": "Get a recursive tree view of a directory on the user's computer. Returns nested structure with files and folders. Useful for understanding project structure. Use max_depth to limit recursion for large directories.",
+        "category": "filesystem",
+        "display_category": "Filesystem",
+
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Root directory path to scan"
+                },
+                "max_depth": {
+                    "type": "integer",
+                    "description": "Maximum recursion depth (default 5, max 10)"
+                },
+                "include_files": {
+                    "type": "boolean",
+                    "description": "Include files in output, not just directories (default true)"
+                },
+                "include_hidden": {
+                    "type": "boolean",
+                    "description": "Include hidden files and folders (default false)"
+                }
+            },
+            "required": ["path"]
+        },
+
+        "executor": oa_fs_directory_tree,
+        "chat_toolbox": False,
+        "data_visualization": False,
+        "needs_user_id": True,
+        "is_async": True,
+    },
 
 
-def get_data_tools(user_role: str) -> list[dict]:
-    """
-    Get tools available for data visualization page.
-    Only includes tools with data_visualization=True, filtered by permission.
-    
-    Args:
-        user_role: The user's role
-        
-    Returns:
-        List of tools in simplified format for data page, with display_category for grouping
-    """
-    tools = []
-    for tool in TOOL_REGISTRY:
-        # Must be data-visualizable and user must have permission
-        if not tool.get("data_visualization", False):
-            continue
-        if not can_use_tool(user_role, tool["category"]):
-            continue
-            
-        # Convert parameters to simpler format for frontend
-        simple_params = _convert_params_to_simple(tool["parameters"])
-        
-        tool_entry = {
-            "name": tool["name"],
-            "description": tool["description"],
-            "parameters": simple_params,
-            "display_category": tool.get("display_category", "Other"),
-            "default_chart_type": tool.get("default_chart_type", "table"),
-        }
-        
-        # Include chart config if present
-        if tool.get("chart_config"):
-            tool_entry["chart_config"] = tool["chart_config"]
-        
-        tools.append(tool_entry)
-    
-    return tools
+    {
+        "name": "fs_edit_file",
+        "description": "Edit a file by finding and replacing text. The old_text must appear exactly once in the file (for safe, unambiguous replacement). Use for targeted code edits, config changes, etc. If text appears multiple times, add more surrounding context to make it unique.",
+        "category": "filesystem",
+        "display_category": "Filesystem",
+
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Full path to the file to edit"
+                },
+                "old_text": {
+                    "type": "string",
+                    "description": "Text to find and replace (must appear exactly once in file)"
+                },
+                "new_text": {
+                    "type": "string",
+                    "description": "Replacement text (can be empty to delete the old_text)"
+                }
+            },
+            "required": ["path", "old_text", "new_text"]
+        },
+
+        "executor": oa_fs_edit_file,
+        "chat_toolbox": False,
+        "data_visualization": False,
+        "needs_user_id": True,
+        "is_async": True,
+    },
 
 
-def get_all_tool_names() -> list[str]:
-    """Get list of all tool names (for validation, etc.)"""
-    return [tool["name"] for tool in TOOL_REGISTRY]
+    {
+        "name": "fs_copy_file",
+        "description": "Copy a file to a new location on the user's computer. If destination is a directory, the file is copied into it with the same name. Creates parent directories if needed. Requires read permission on source and write permission on destination.",
+        "category": "filesystem",
+        "display_category": "Filesystem",
+
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Source file path to copy from"
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "Destination path (file or directory)"
+                }
+            },
+            "required": ["source", "destination"]
+        },
+
+        "executor": oa_fs_copy_file,
+        "chat_toolbox": False,
+        "data_visualization": False,
+        "needs_user_id": True,
+        "is_async": True,
+    },
 
 
-def _convert_params_to_simple(openai_params: dict) -> list[dict]:
-    """
-    Convert OpenAI parameter format to simple list format for frontend.
-    
-    OpenAI format:
-        {"type": "object", "properties": {"job_number": {"type": "string", ...}}, "required": [...]}
-    
-    Simple format:
-        [{"name": "job_number", "type": "string", "required": True, "description": "..."}]
-    """
-    properties = openai_params.get("properties", {})
-    required = openai_params.get("required", [])
-    
-    params = []
-    for name, spec in properties.items():
-        params.append({
-            "name": name,
-            "type": spec.get("type", "string"),
-            "required": name in required,
-            "description": spec.get("description", ""),
-        })
-    
-    return params
+    {
+        "name": "fs_move_file",
+        "description": "Move or rename a file or directory on the user's computer. Works for both files and directories. If destination is an existing directory, the source is moved into it. Requires delete permission on source and write permission on destination.",
+        "category": "filesystem",
+        "display_category": "Filesystem",
+
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Source path (file or directory) to move"
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "Destination path"
+                }
+            },
+            "required": ["source", "destination"]
+        },
+
+        "executor": oa_fs_move_file,
+        "chat_toolbox": False,
+        "data_visualization": False,
+        "needs_user_id": True,
+        "is_async": True,
+    },
+
+
+    {
+        "name": "fs_search_files",
+        "description": "Search for files matching a pattern on the user's computer. Supports glob patterns (*.py, **/*.txt) or simple substring matching. Searches recursively from the given path. Use for finding files when you don't know the exact location.",
+        "category": "filesystem",
+        "display_category": "Filesystem",
+
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Directory to search in"
+                },
+                "pattern": {
+                    "type": "string",
+                    "description": "Search pattern - glob (*.py, *.txt) or substring to match in filename"
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum results to return (default 100, max 500)"
+                },
+                "include_hidden": {
+                    "type": "boolean",
+                    "description": "Include hidden files in results (default false)"
+                }
+            },
+            "required": ["path", "pattern"]
+        },
+
+        "executor": oa_fs_search_files,
+        "chat_toolbox": False,
+        "data_visualization": False,
+        "needs_user_id": True,
+        "is_async": True,
+    },
+
+
+    {
+        "name": "fs_get_file_info",
+        "description": "Get detailed metadata about a file or directory on the user's computer. Returns name, size, type (file/directory), and timestamps (created, modified, accessed). Use to check file details before operations.",
+        "category": "filesystem",
+        "display_category": "Filesystem",
+
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path to file or directory"
+                }
+            },
+            "required": ["path"]
+        },
+
+        "executor": oa_fs_get_file_info,
+        "chat_toolbox": False,
+        "data_visualization": False,
+        "needs_user_id": True,
+        "is_async": True,
+    },
+
+
+    {
+        "name": "fs_file_exists",
+        "description": "Check if a file or directory exists on the user's computer. Returns existence status and whether it's a file or directory. Quick check before attempting operations.",
+        "category": "filesystem",
+        "display_category": "Filesystem",
+
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path to check"
+                }
+            },
+            "required": ["path"]
+        },
+
+        "executor": oa_fs_file_exists,
+        "chat_toolbox": False,
+        "data_visualization": False,
+        "needs_user_id": True,
+        "is_async": True,
+    },
+
+
+]

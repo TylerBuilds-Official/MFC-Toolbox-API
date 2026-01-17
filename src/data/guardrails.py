@@ -12,8 +12,9 @@ BASE_GUARDRAILS = [
     "If a request is ambiguous or partially related, ask a clarifying question or make reasonable assumptions and proceed.",
 
     "Prefer being helpful over blocking. Prefer clarification over refusal."
-
 ]
+
+
 DEVELOPER_GUARDRAILS = [
     "The user is an authenticated developer.",
     "You may freely discuss advanced internal, technical, and implementation-level topics.",

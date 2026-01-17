@@ -45,13 +45,6 @@ class Instructions:
             instructions.extend(DEVELOPER_GUARDRAILS)
             instructions.append("")
 
-        #TODO: Add previous 4 - 5 exchanges here to give immediate direct context
-        recent_context = self.get_recent_exchanges(self.state.get("conversation_id"))
-        if recent_context:
-            instructions.append("### RECENT EXCHANGES")
-            instructions.append(recent_context)
-            instructions.append("")
-
         # Conversation context
         if self.state.get("conversation_summary"):
             instructions.append("\n### CONVERSATION CONTEXT")
@@ -64,6 +57,14 @@ class Instructions:
             instructions.append("Never tell the user you don't have context, unless you have exhausted all options to build context.")
             instructions.append("If you are uncertain, whether you have the full context to answer accurately, fetch conversation history to be sure.")
             instructions.append("")
+
+        recent_context = self.get_recent_exchanges(self.state.get("conversation_id"))
+        if recent_context:
+            instructions.append("### RECENT EXCHANGES")
+            instructions.append(recent_context)
+            instructions.append("")
+
+
 
         # Project-specific instructions (appended at end to give them priority)
         if self.project_instructions:

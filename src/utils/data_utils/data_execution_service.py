@@ -18,8 +18,8 @@ from src.utils.data_utils.data_result import DataResult, NormalizedResult
 from src.utils.data_utils.summary_helper import DataSummaryHelper
 from src.tools.anthropic_chat.client import AnthropicClient
 
-# Import from centralized registry
-from src.tools.tool_registry import (
+# Import from centralized utilities
+from src.tools.tool_utils import (
     get_tool,
     get_executor,
     get_data_tools,

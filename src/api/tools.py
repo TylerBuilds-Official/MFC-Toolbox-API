@@ -1,6 +1,6 @@
 from fastapi import Depends, APIRouter
 from src.tools.auth import User, get_current_user
-from src.tools.tool_registry import get_chat_tools, get_chat_toolbox_tools, get_data_tools
+from src.tools.tool_utils import get_chat_tools, get_chat_toolbox_tools, get_data_tools
 
 
 router = APIRouter()

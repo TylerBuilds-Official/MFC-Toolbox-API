@@ -93,7 +93,7 @@ def oa_create_data_artifact(
         if 'key' in tool_params and 'value' in tool_params:
             tool_params = {tool_params['key']: tool_params['value']}
 
-    from src.tools.tool_registry import get_tool
+    from src.tools.tool_utils import get_tool
     # Validate tool exists and is data-visualizable
     tool_def = get_tool(target_tool)
     if not tool_def:

@@ -24,11 +24,13 @@ class ModelCapabilities:
     default_thinking_budget: Optional[int] = None
     
     # Token limits
-    default_max_tokens: int = 4096
+    default_max_tokens: int = 16384
     max_thinking_tokens: Optional[int] = None  # For extended thinking models
 
 
 # Model Registry
+
+default_max_tokens_conf: int = 16384
 
 MODEL_CAPABILITIES: dict[str, ModelCapabilities] = {
 
@@ -36,25 +38,25 @@ MODEL_CAPABILITIES: dict[str, ModelCapabilities] = {
     "gpt-3.5-turbo": ModelCapabilities(
         provider="openai",
         reasoning_type="none",
-        default_max_tokens=4096,
+        default_max_tokens=default_max_tokens_conf,
     ),
 
     "gpt-4": ModelCapabilities(
         provider="openai",
         reasoning_type="none",
-        default_max_tokens=8192,
+        default_max_tokens=default_max_tokens_conf,
     ),
 
     "gpt-4o": ModelCapabilities(
         provider="openai",
         reasoning_type="none",
-        default_max_tokens=4096,
+        default_max_tokens=default_max_tokens_conf,
     ),
 
     "gpt-4.1": ModelCapabilities(
         provider="openai",
         reasoning_type="none",
-        default_max_tokens=8192,
+        default_max_tokens=default_max_tokens_conf,
     ),
     
     # OpenAI Models - WITH reasoning (summary only, tokens hidden)
@@ -62,19 +64,19 @@ MODEL_CAPABILITIES: dict[str, ModelCapabilities] = {
         provider="openai",
         reasoning_type="summary",
         default_reasoning_effort="medium",
-        default_max_tokens=16384,
+        default_max_tokens=default_max_tokens_conf,
     ),
     "gpt-5.1": ModelCapabilities(
         provider="openai",
         reasoning_type="summary",
         default_reasoning_effort="medium",
-        default_max_tokens=16384,
+        default_max_tokens=default_max_tokens_conf,
     ),
     "gpt-5.2-chat-latest": ModelCapabilities(
         provider="openai",
         reasoning_type="summary",
         default_reasoning_effort="medium",
-        default_max_tokens=16384,
+        default_max_tokens=default_max_tokens_conf,
     ),
     
     # -------------------------------------------------------------------------
@@ -84,42 +86,42 @@ MODEL_CAPABILITIES: dict[str, ModelCapabilities] = {
         provider="anthropic",
         reasoning_type="extended_thinking",
         default_thinking_budget=10000,
-        default_max_tokens=4096,
+        default_max_tokens=default_max_tokens_conf,
         max_thinking_tokens=32000,
     ),
     "claude-3-5-haiku-latest": ModelCapabilities(
         provider="anthropic",
         reasoning_type="extended_thinking",
-        default_thinking_budget=8000,
-        default_max_tokens=4096,
-        max_thinking_tokens=16000,
+        default_thinking_budget=10000,
+        default_max_tokens=default_max_tokens_conf,
+        max_thinking_tokens=32000,
     ),
     "claude-3-7-sonnet-latest": ModelCapabilities(
         provider="anthropic",
         reasoning_type="extended_thinking",
         default_thinking_budget=10000,
-        default_max_tokens=4096,
+        default_max_tokens=default_max_tokens_conf,
         max_thinking_tokens=32000,
     ),
     "claude-haiku-4-5": ModelCapabilities(
         provider="anthropic",
         reasoning_type="extended_thinking",
-        default_thinking_budget=8000,
-        default_max_tokens=4096,
-        max_thinking_tokens=16000,
+        default_thinking_budget=10000,
+        default_max_tokens=default_max_tokens_conf,
+        max_thinking_tokens=32000,
     ),
     "claude-sonnet-4-5-20250929": ModelCapabilities(
         provider="anthropic",
         reasoning_type="extended_thinking",
         default_thinking_budget=10000,
-        default_max_tokens=8192,
+        default_max_tokens=default_max_tokens_conf,
         max_thinking_tokens=32000,
     ),
     "claude-opus-4-5-20251101": ModelCapabilities(
         provider="anthropic",
         reasoning_type="extended_thinking",
         default_thinking_budget=16000,
-        default_max_tokens=8192,
+        default_max_tokens=default_max_tokens_conf,
         max_thinking_tokens=64000,
     ),
 }

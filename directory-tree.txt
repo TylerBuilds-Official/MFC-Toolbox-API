@@ -2,16 +2,21 @@ MFC_ToolboxAPI/
 ├── src/
 │   ├── api/
 │   │   ├── data/
+│   │   │   ├── groups.py
 │   │   │   ├── sessions.py
 │   │   │   └── utils.py
 │   │   ├── admin.py
+│   │   ├── agent_ws.py
 │   │   ├── artifacts.py
 │   │   ├── auth.py
 │   │   ├── chat.py
+│   │   ├── connectors.py
+│   │   ├── conversation_projects.py
 │   │   ├── conversations.py
 │   │   ├── dependencies.py
 │   │   ├── health.py
 │   │   ├── lifespan.py
+│   │   ├── memories.py
 │   │   ├── models.py
 │   │   ├── settings.py
 │   │   ├── tools.py
@@ -20,6 +25,7 @@ MFC_ToolboxAPI/
 │   │   ├── company_data.py
 │   │   ├── guardrails.py
 │   │   ├── instructions.py
+│   │   ├── memory_management.py
 │   │   ├── model_capabilities.py
 │   │   └── valid_models.py
 │   ├── tools/
@@ -34,12 +40,31 @@ MFC_ToolboxAPI/
 │   │   │   ├── dependencies.py
 │   │   │   └── user_service.py
 │   │   ├── local_mcp_tools/
-│   │   │   ├── local_mcp_tool_base.py
+│   │   │   ├── company_data/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── local_mcp_tool_getAllCompanyData.py
+│   │   │   │   ├── local_mcp_tool_getCompanyInfo.py
+│   │   │   │   ├── local_mcp_tool_getContactInfo.py
+│   │   │   │   ├── local_mcp_tool_getDepartmentSummary.py
+│   │   │   │   ├── local_mcp_tool_getEmployee.py
+│   │   │   │   ├── local_mcp_tool_getEmployeeDirectorySummary.py
+│   │   │   │   ├── local_mcp_tool_getEmployeeEmail.py
+│   │   │   │   ├── local_mcp_tool_getEmployeePhone.py
+│   │   │   │   ├── local_mcp_tool_getEmployeesByDepartment.py
+│   │   │   │   ├── local_mcp_tool_getITTeam.py
+│   │   │   │   ├── local_mcp_tool_getProjectManagers.py
+│   │   │   │   ├── local_mcp_tool_listDepartments.py
+│   │   │   │   └── local_mcp_tool_searchEmployees.py
+│   │   │   ├── filesystem_tools.py
 │   │   │   ├── local_mcp_tool_createDataArtifact.py
 │   │   │   ├── local_mcp_tool_definitions.py
+│   │   │   ├── local_mcp_tool_deleteUserMemory.py
 │   │   │   ├── local_mcp_tool_getActiveJobs.py
 │   │   │   ├── local_mcp_tool_getAllJobInfo.py
+│   │   │   ├── local_mcp_tool_getAllUserMemories.py
 │   │   │   ├── local_mcp_tool_getConversationMessages.py
+│   │   │   ├── local_mcp_tool_getDataSessionDetails.py
+│   │   │   ├── local_mcp_tool_getDataSessions.py
 │   │   │   ├── local_mcp_tool_getJobDetails.py
 │   │   │   ├── local_mcp_tool_getJobInfo.py
 │   │   │   ├── local_mcp_tool_getJobsByPM.py
@@ -50,7 +75,9 @@ MFC_ToolboxAPI/
 │   │   │   ├── local_mcp_tool_getRecentConversations.py
 │   │   │   ├── local_mcp_tool_saveUserMemory.py
 │   │   │   ├── local_mcp_tool_searchConversations.py
-│   │   │   └── local_mcp_tool_searchUserMemories.py
+│   │   │   ├── local_mcp_tool_searchDataSessions.py
+│   │   │   ├── local_mcp_tool_searchUserMemories.py
+│   │   │   └── local_mcp_tool_updateUserMemory.py
 │   │   ├── openai_chat/
 │   │   │   ├── handlers/
 │   │   │   │   ├── openai_conversation_handler.py
@@ -71,6 +98,22 @@ MFC_ToolboxAPI/
 │   │   │   │   ├── link_artifacts_to_message.py
 │   │   │   │   ├── record_artifact_access.py
 │   │   │   │   └── update_artifact.py
+│   │   │   ├── conversation_projects/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── accept_project_invite.py
+│   │   │   │   ├── add_conversation_to_project.py
+│   │   │   │   ├── create_conversation_project.py
+│   │   │   │   ├── decline_project_invite.py
+│   │   │   │   ├── delete_conversation_project.py
+│   │   │   │   ├── get_conversation_project.py
+│   │   │   │   ├── get_conversation_projects.py
+│   │   │   │   ├── get_pending_invites.py
+│   │   │   │   ├── get_project_conversations.py
+│   │   │   │   ├── get_project_members.py
+│   │   │   │   ├── invite_to_project.py
+│   │   │   │   ├── remove_conversation_from_project.py
+│   │   │   │   ├── remove_project_member.py
+│   │   │   │   └── update_conversation_project.py
 │   │   │   ├── conversation_state/
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── get_conversation_state.py
@@ -86,13 +129,25 @@ MFC_ToolboxAPI/
 │   │   │   │   ├── search_conversations.py
 │   │   │   │   ├── update_conversation.py
 │   │   │   │   └── update_conversation_summary.py
+│   │   │   ├── data_session_groups/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── add_session_to_group.py
+│   │   │   │   ├── create_data_session_group.py
+│   │   │   │   ├── delete_data_session_group.py
+│   │   │   │   ├── get_data_session_group.py
+│   │   │   │   ├── remove_session_from_group.py
+│   │   │   │   └── update_data_session_group.py
 │   │   │   ├── data_sessions/
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── create_data_result.py
 │   │   │   │   ├── create_data_session.py
 │   │   │   │   ├── get_data_result.py
 │   │   │   │   ├── get_data_session.py
+│   │   │   │   ├── get_data_session_with_preview.py
+│   │   │   │   ├── get_data_sessions_filtered.py
 │   │   │   │   ├── get_data_sessions_list.py
+│   │   │   │   ├── search_data_sessions.py
+│   │   │   │   ├── session_lineage.py
 │   │   │   │   ├── soft_delete_data_session.py
 │   │   │   │   └── update_data_session.py
 │   │   │   ├── memories/
@@ -109,6 +164,8 @@ MFC_ToolboxAPI/
 │   │   │   │   ├── admin_delete_messages.py
 │   │   │   │   ├── get_message.py
 │   │   │   │   ├── get_messages.py
+│   │   │   │   ├── get_messages_paginated.py
+│   │   │   │   ├── get_recent_messages.py
 │   │   │   │   └── update_message_artifact.py
 │   │   │   ├── pools/
 │   │   │   │   ├── __init__.py
@@ -135,17 +192,35 @@ MFC_ToolboxAPI/
 │   │   ├── state/
 │   │   │   ├── settings_manager.py
 │   │   │   └── state_handler.py
-│   │   └── tool_registry.py
+│   │   ├── __init__.py
+│   │   ├── tool_registry.py
+│   │   └── tool_utils.py
 │   ├── utils/
 │   │   ├── _dataclasses_main/
 │   │   │   ├── create_conversation_request.py
 │   │   │   ├── create_data_session_request.py
 │   │   │   ├── update_conversation_request.py
 │   │   │   └── update_data_session_request.py
+│   │   ├── agent_utils/
+│   │   │   ├── __init__.py
+│   │   │   └── agent_registry.py
 │   │   ├── artifact_utils/
 │   │   │   ├── __init__.py
 │   │   │   ├── artifact.py
 │   │   │   └── artifact_service.py
+│   │   ├── company_data_utils/
+│   │   │   ├── __init__.py
+│   │   │   └── company_data_service.py
+│   │   ├── connector_utils/
+│   │   │   ├── __init__.py
+│   │   │   ├── db.py
+│   │   │   └── models.py
+│   │   ├── conversation_project_utils/
+│   │   │   ├── __init__.py
+│   │   │   ├── conversation_project.py
+│   │   │   ├── conversation_project_service.py
+│   │   │   ├── project_invite.py
+│   │   │   └── project_member.py
 │   │   ├── conversation_state_utils/
 │   │   │   ├── __init__.py
 │   │   │   └── conversation_state_service.py
@@ -159,12 +234,17 @@ MFC_ToolboxAPI/
 │   │   ├── data_utils/
 │   │   │   ├── __init__.py
 │   │   │   ├── data_execution_service.py
+│   │   │   ├── data_group.py
+│   │   │   ├── data_group_service.py
 │   │   │   ├── data_result.py
 │   │   │   ├── data_result_service.py
 │   │   │   ├── data_session.py
 │   │   │   ├── data_session_service.py
 │   │   │   ├── summary_helper.py
 │   │   │   └── tool_normalizer.py
+│   │   ├── instruction_utils/
+│   │   │   ├── __init__.py
+│   │   │   └── get_recent_messages_formatted.py
 │   │   ├── memory_utils/
 │   │   │   ├── __init__.py
 │   │   │   ├── memory.py
@@ -177,4 +257,5 @@ MFC_ToolboxAPI/
 │   │       └── __init__.py
 │   └── app.py
 ├── TODO
+├── directory-tree.txt
 └── main.py

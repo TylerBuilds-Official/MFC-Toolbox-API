@@ -3,8 +3,7 @@ from typing import AsyncGenerator, Any
 
 import openai
 
-from src.tools.local_mcp_tools.local_mcp_tool_base import OAToolBase
-from src.tools.tool_registry import get_chat_tools
+from src.tools.tool_utils import OAToolBase, get_chat_tools
 from src.data.valid_models import VALID_OA_MODELS
 
 
