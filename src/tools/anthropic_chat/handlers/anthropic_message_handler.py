@@ -5,6 +5,7 @@ from anthropic import Anthropic
 
 from src.tools.tool_utils import OAToolBase, get_chat_tools
 from src.data.valid_models import VALID_ANT_MODELS
+from src.data.model_capabilities import get_capabilities, supports_extended_thinking
 
 
 class AnthropicMessageHandler:
@@ -61,16 +62,17 @@ class AnthropicMessageHandler:
         filtered_tools = get_chat_tools(user_role)
 
         # Build API parameters
+        capabilities = get_capabilities(self.model)
         params = {
             "model": self.model,
-            "max_tokens": 8192,
+            "max_tokens": capabilities.default_max_tokens,
             "system": instructions,
             "messages": messages,
             "tools": self._convert_tools_to_ant_format(filtered_tools)
         }
 
-        # Add extended thinking if enabled
-        if enable_thinking:
+        # Add extended thinking if enabled AND model supports it
+        if enable_thinking and supports_extended_thinking(self.model):
             params["thinking"] = {
                 "type": "enabled",
                 "budget_tokens": thinking_budget
@@ -251,16 +253,17 @@ class AnthropicMessageHandler:
             tool_round += 1
 
             # Build API parameters
+            capabilities = get_capabilities(self.model)
             params = {
                 "model": self.model,
-                "max_tokens": 8192,
+                "max_tokens": capabilities.default_max_tokens,
                 "system": instructions,
                 "messages": messages,
                 "tools": self._convert_tools_to_ant_format(filtered_tools),
             }
 
-            # Add extended thinking if enabled
-            if enable_thinking:
+            # Add extended thinking if enabled AND model supports it
+            if enable_thinking and supports_extended_thinking(self.model):
                 params["thinking"] = {
                     "type": "enabled",
                     "budget_tokens": thinking_budget

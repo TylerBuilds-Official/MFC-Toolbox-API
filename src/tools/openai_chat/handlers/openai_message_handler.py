@@ -5,6 +5,7 @@ import openai
 
 from src.tools.tool_utils import OAToolBase, get_chat_tools
 from src.data.valid_models import VALID_OA_MODELS
+from src.data.model_capabilities import get_capabilities
 
 
 class OpenAIMessageHandler:
@@ -65,11 +66,15 @@ class OpenAIMessageHandler:
         user_role = tool_context.get("user_role", "pending") if tool_context else "pending"
         filtered_tools = get_chat_tools(user_role)
 
+        # Get model capabilities for token limits
+        capabilities = get_capabilities(self.model)
+        max_tokens = capabilities.default_max_tokens
+
         chat_params = {
             "model": self.model,
             "messages": messages,
             "tools": filtered_tools,
-            **self._get_token_param(32384),
+            **self._get_token_param(max_tokens),
         }
 
         if "gpt-5" in self.model:
@@ -96,7 +101,7 @@ class OpenAIMessageHandler:
                 model=self.model,
                 messages=messages,
                 tools=filtered_tools,
-                **self._get_token_param(32384)
+                **self._get_token_param(max_tokens)
             )
             assistant_message = response.choices[0].message
 
@@ -171,6 +176,10 @@ class OpenAIMessageHandler:
         user_role = tool_context.get("user_role", "pending") if tool_context else "pending"
         filtered_tools = get_chat_tools(user_role)
         
+        # Get model capabilities for token limits
+        capabilities = get_capabilities(self.model)
+        max_tokens = capabilities.default_max_tokens
+        
         while tool_round < max_tool_rounds:
             tool_round += 1
             
@@ -179,7 +188,7 @@ class OpenAIMessageHandler:
                 "messages": messages,
                 "tools": filtered_tools,
                 "stream": True,
-                **self._get_token_param(32384),
+                **self._get_token_param(max_tokens),
             }
             
             if "gpt-5" in self.model:
