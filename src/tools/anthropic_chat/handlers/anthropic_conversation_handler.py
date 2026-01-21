@@ -20,6 +20,8 @@ class AnthropicConversationHandler:
         if user:
             tool_context = {
                 "user_id": user.id,
+                "user_role": user.role,
+                "user_specialties": user.specialty_roles,
                 "conversation_id": conversation_id
             }
 

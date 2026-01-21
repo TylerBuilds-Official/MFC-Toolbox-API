@@ -45,7 +45,8 @@ class DataExecutionService:
     def execute(
         self, 
         session_id: int, 
-        user_role: str = "user"
+        user_role: str = "user",
+        user_specialties: list[str] = None
     ) -> tuple[DataSession, DataResult | None]:
         """
         Executes the tool for a session and stores the result.
@@ -60,7 +61,8 @@ class DataExecutionService:
         
         Args:
             session_id: The session to execute
-            user_role: The user's role for permission checking
+            user_role: The user's base role for permission checking
+            user_specialties: List of specialty roles the user has
             
         Returns:
             Tuple of (updated session, result or None if error)
@@ -79,8 +81,8 @@ class DataExecutionService:
         if tool is None:
             raise ValueError(f"Unknown tool: {session.tool_name}")
         
-        # Check permissions
-        if not can_use_tool(user_role, tool["category"]):
+        # Check permissions (role OR specialty)
+        if not can_use_tool(user_role, tool["category"], user_specialties):
             raise PermissionError(
                 f"Role '{user_role}' does not have permission to use tool '{session.tool_name}'"
             )
@@ -124,7 +126,8 @@ class DataExecutionService:
         self, 
         tool_name: str, 
         tool_params: dict = None,
-        user_role: str = "user"
+        user_role: str = "user",
+        user_specialties: list[str] = None
     ) -> NormalizedResult:
         """
         Executes a tool and returns normalized result without storing.
@@ -133,7 +136,8 @@ class DataExecutionService:
         Args:
             tool_name: The tool to execute
             tool_params: Tool parameters
-            user_role: The user's role for permission checking
+            user_role: The user's base role for permission checking
+            user_specialties: List of specialty roles the user has
             
         Returns:
             NormalizedResult (not persisted)
@@ -146,7 +150,7 @@ class DataExecutionService:
         if tool is None:
             raise ValueError(f"Unknown tool: {tool_name}")
             
-        if not can_use_tool(user_role, tool["category"]):
+        if not can_use_tool(user_role, tool["category"], user_specialties):
             raise PermissionError(
                 f"Role '{user_role}' does not have permission to use tool '{tool_name}'"
             )
@@ -185,18 +189,19 @@ class DataExecutionService:
             return executor()
 
     @staticmethod
-    def get_available_tools(user_role: str = "user") -> list[dict]:
+    def get_available_tools(user_role: str = "user", user_specialties: list[str] = None) -> list[dict]:
         """
         Returns list of tools available for data visualization.
-        Filtered by user's permission level.
+        Filtered by user's permission level and specialties.
         
         Args:
-            user_role: The user's role
+            user_role: The user's base role
+            user_specialties: List of specialty roles the user has
             
         Returns:
             List of tool definitions for data page
         """
-        return get_data_tools(user_role)
+        return get_data_tools(user_role, user_specialties)
 
     def _generate_and_save_title(self, session: DataSession, result: DataResult) -> None:
         """

@@ -11,7 +11,7 @@ async def get_tools(
         user: User = Depends(get_current_user)
 ):
     """
-    Get available tools, filtered by user role and optional surface.
+    Get available tools, filtered by user role, specialties, and optional surface.
 
     Args:
         surface: Optional filter for tool visibility
@@ -20,9 +20,9 @@ async def get_tools(
             - "data": Tools for data visualization page
     """
     if surface == "chat_toolbox":
-        return {"tools": get_chat_toolbox_tools(user.role)}
+        return {"tools": get_chat_toolbox_tools(user.role, user.specialty_roles)}
     elif surface == "data":
-        return {"tools": get_data_tools(user.role)}
+        return {"tools": get_data_tools(user.role, user.specialty_roles)}
     else:
         # Default: all tools for AI
-        return {"tools": get_chat_tools(user.role)}
+        return {"tools": get_chat_tools(user.role, user.specialty_roles)}

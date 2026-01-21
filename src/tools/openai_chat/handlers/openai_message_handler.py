@@ -62,9 +62,10 @@ class OpenAIMessageHandler:
         messages.extend(history)
         messages.append({"role": "user", "content": message})
 
-        # Get filtered tools based on user role
+        # Get filtered tools based on user role and specialties
         user_role = tool_context.get("user_role", "pending") if tool_context else "pending"
-        filtered_tools = get_chat_tools(user_role)
+        user_specialties = tool_context.get("user_specialties", []) if tool_context else []
+        filtered_tools = get_chat_tools(user_role, user_specialties)
 
         # Get model capabilities for token limits
         capabilities = get_capabilities(self.model)
@@ -172,9 +173,10 @@ class OpenAIMessageHandler:
         max_tool_rounds = 10  # Safety limit
         tool_round = 0
 
-        # Get filtered tools based on user role
+        # Get filtered tools based on user role and specialties
         user_role = tool_context.get("user_role", "pending") if tool_context else "pending"
-        filtered_tools = get_chat_tools(user_role)
+        user_specialties = tool_context.get("user_specialties", []) if tool_context else []
+        filtered_tools = get_chat_tools(user_role, user_specialties)
         
         # Get model capabilities for token limits
         capabilities = get_capabilities(self.model)

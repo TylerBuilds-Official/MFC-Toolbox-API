@@ -173,7 +173,7 @@ async def chat(message: str, model: str = None,
             memories_text=memories_text,
             project_instructions=project_instructions
         ).build_instructions()
-        tool_context = {"user_id": user.id, "user_role": user.role, "conversation_id": conversation_id}
+        tool_context = {"user_id": user.id, "user_role": user.role, "user_specialties": user.specialty_roles, "conversation_id": conversation_id}
 
         thinking_content = None
         if provider == "anthropic":

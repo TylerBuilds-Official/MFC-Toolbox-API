@@ -57,9 +57,10 @@ class AnthropicMessageHandler:
         messages.extend(history)
         messages.append({"role": "user", "content": message})
 
-        # Get filtered tools based on user role
+        # Get filtered tools based on user role and specialties
         user_role = tool_context.get("user_role", "pending") if tool_context else "pending"
-        filtered_tools = get_chat_tools(user_role)
+        user_specialties = tool_context.get("user_specialties", []) if tool_context else []
+        filtered_tools = get_chat_tools(user_role, user_specialties)
 
         # Build API parameters
         capabilities = get_capabilities(self.model)
@@ -245,9 +246,10 @@ class AnthropicMessageHandler:
         max_tool_rounds = 10
         tool_round = 0
 
-        # Get filtered tools based on user role
+        # Get filtered tools based on user role and specialties
         user_role = tool_context.get("user_role", "pending") if tool_context else "pending"
-        filtered_tools = get_chat_tools(user_role)
+        user_specialties = tool_context.get("user_specialties", []) if tool_context else []
+        filtered_tools = get_chat_tools(user_role, user_specialties)
 
         while tool_round < max_tool_rounds:
             tool_round += 1

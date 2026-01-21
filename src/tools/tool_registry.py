@@ -6,14 +6,17 @@ Aggregates tools from role-based modules and provides constants.
 Structure:
 - ROLE_HIERARCHY: Maps role names to permission levels
 - TOOL_CATEGORIES: Maps category names to minimum role required
+- SPECIALTY_CATEGORIES: Maps specialty names to categories they unlock
 - TOOL_REGISTRY: Combined list of all tools from role modules
 
 Tool modules are organized by minimum role required:
 - user/     → Accessible by: user, manager, admin
 - manager/  → Accessible by: manager, admin
 - admin/    → Accessible by: admin only
+- specialty/ → Accessible by users with specific specialty grants
 
 Each role sees tools at their level and all levels below.
+Specialty tools are additive - granted independently of base role.
 """
 
 # =============================================================================
@@ -32,7 +35,7 @@ ROLE_HIERARCHY = {
 
 
 # =============================================================================
-# Tool Categories
+# Tool Categories (Role-Based)
 # =============================================================================
 # Maps category name to minimum role required
 
@@ -57,12 +60,45 @@ TOOL_CATEGORIES = {
 
 
 # =============================================================================
+# Specialty Categories (Additive Permissions)
+# =============================================================================
+# Maps specialty name to list of tool categories it unlocks
+# These are INDEPENDENT of base role - a "user" with "drawing_coordinator"
+# specialty gets access to these categories without needing "manager" role
+
+VALID_SPECIALTIES = {
+    "drawing_coordinator",
+    # Future:
+    # "estimator",
+    # "project_manager", 
+}
+
+SPECIALTY_CATEGORIES = {
+    "drawing_coordinator": [
+        "transmittal_processing",       # Process incoming transmittals
+        "drawing_classification",       # Classify/categorize drawings
+        "drawing_distribution",         # Distribute drawings to folders
+    ],
+    # Future specialties:
+    # "estimator": [
+    #     "takeoff_tools",
+    #     "estimate_reports",
+    # ],
+    # "project_manager": [
+    #     "pm_reports",
+    #     "schedule_management",
+    # ],
+}
+
+
+# =============================================================================
 # Import Tools from Role Modules
 # =============================================================================
 
 from src.tools.tool_registry_modules.user import USER_TOOLS
 from src.tools.tool_registry_modules.manager import MANAGER_TOOLS
 from src.tools.tool_registry_modules.admin import ADMIN_TOOLS
+from src.tools.tool_registry_modules.specialty import SPECIALTY_TOOLS
 
 
 # =============================================================================
@@ -73,6 +109,7 @@ TOOL_REGISTRY: list[dict] = [
     *USER_TOOLS,
     *MANAGER_TOOLS,
     *ADMIN_TOOLS,
+    *SPECIALTY_TOOLS,
 ]
 
 
@@ -82,6 +119,8 @@ TOOL_REGISTRY: list[dict] = [
 
 __all__ = [
     "ROLE_HIERARCHY",
-    "TOOL_CATEGORIES", 
+    "TOOL_CATEGORIES",
+    "VALID_SPECIALTIES",
+    "SPECIALTY_CATEGORIES",
     "TOOL_REGISTRY",
 ]
