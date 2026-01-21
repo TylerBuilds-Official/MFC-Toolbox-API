@@ -49,6 +49,7 @@ TOOL_CATEGORIES = {
     "artifacts": "user",            # Artifact creation tools
     "company_info": "user",         # Company/employee lookups
     "filesystem": "user",           # Filesystem operations (via agent connector)
+    "documents": "user",            # Document creation (HTML reports, etc.) - NOTE: adjust here for permissions
     
     # Manager-level categories
     "manager_reports": "manager",   # Sensitive reports (OT, labor costs, etc.)

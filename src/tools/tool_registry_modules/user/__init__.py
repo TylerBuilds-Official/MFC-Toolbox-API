@@ -13,6 +13,7 @@ Categories included:
 - artifacts    → Artifacts display category
 - company_info → Company display category
 - filesystem   → Filesystem display category
+- documents    → Document Creation display category
 """
 
 from .jobs_registry import JOB_TOOLS
@@ -22,6 +23,7 @@ from .data_sessions_registry import DATA_SESSION_TOOLS
 from .artifacts_registry import ARTIFACT_TOOLS
 from .company_registry import COMPANY_TOOLS
 from .filesystem_registry import FILESYSTEM_TOOLS
+from .document_creation_registry import DOCUMENT_CREATION_TOOLS
 
 
 USER_TOOLS = [
@@ -32,6 +34,7 @@ USER_TOOLS = [
     *ARTIFACT_TOOLS,
     *COMPANY_TOOLS,
     *FILESYSTEM_TOOLS,
+    *DOCUMENT_CREATION_TOOLS,
 ]
 
 __all__ = ["USER_TOOLS"]
