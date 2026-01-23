@@ -29,7 +29,7 @@ DOCUMENT_CREATION_TOOLS = [
             "learn the expected data format. Templates expect structured data with keys like "
             "'summary_cards', 'sections', 'tables' - not flat data objects."
         ),
-        "category": "documents",  # NOTE: Change here to adjust permission level
+        "category": "documents",  # NOTE: Change here to adjust permission level if ever desired - lookup helper - PERMISSIONS
         "display_category": "Document Creation",
 
         "parameters": {
@@ -101,7 +101,7 @@ DOCUMENT_CREATION_TOOLS = [
         "name": "list_report_templates",
         "description": (
             "List available HTML report templates AND get skill documentation for data formatting. "
-            "ALWAYS call this before create_html_report to understand the expected data structure. "
+            "If you arent familiar with the data structure call this before create_html_report to understand the expected data structure. "
             "Returns template names, descriptions, and the skill guide with examples."
         ),
         "category": "documents",
@@ -130,6 +130,7 @@ DOCUMENT_CREATION_TOOLS = [
         ),
         "category": "documents",
         "display_category": "Document Creation",
+        "chat_render_hint": "skill_read",
         
         "parameters": {
             "type": "object",

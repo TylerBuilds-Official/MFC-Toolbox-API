@@ -22,12 +22,18 @@ from src.tools.sql_tools.conversation_projects.get_project_conversations import 
 # Invites
 from src.tools.sql_tools.conversation_projects.invite_to_project import invite_to_project
 from src.tools.sql_tools.conversation_projects.get_pending_invites import get_pending_invites
+from src.tools.sql_tools.conversation_projects.get_project_invites import get_project_invites
 from src.tools.sql_tools.conversation_projects.accept_project_invite import accept_project_invite
 from src.tools.sql_tools.conversation_projects.decline_project_invite import decline_project_invite
+from src.tools.sql_tools.conversation_projects.cancel_project_invite import cancel_project_invite
 
 # Members
 from src.tools.sql_tools.conversation_projects.get_project_members import get_project_members
 from src.tools.sql_tools.conversation_projects.remove_project_member import remove_project_member
+
+# Community (Open Projects)
+from src.tools.sql_tools.conversation_projects.get_community_projects import get_community_projects
+from src.tools.sql_tools.conversation_projects.join_open_project import join_open_project
 
 
 __all__ = [
@@ -47,10 +53,16 @@ __all__ = [
     # Invites
     "invite_to_project",
     "get_pending_invites",
+    "get_project_invites",
     "accept_project_invite",
     "decline_project_invite",
+    "cancel_project_invite",
     
     # Members
     "get_project_members",
     "remove_project_member",
+    
+    # Community (Open Projects)
+    "get_community_projects",
+    "join_open_project",
 ]

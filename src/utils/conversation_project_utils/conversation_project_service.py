@@ -13,10 +13,14 @@ from src.tools.sql_tools import (
     get_project_conversations,
     invite_to_project,
     get_pending_invites,
+    get_project_invites,
     accept_project_invite,
     decline_project_invite,
+    cancel_project_invite,
     get_project_members,
     remove_project_member,
+    get_community_projects,
+    join_open_project,
 )
 from src.utils.conversation_project_utils.conversation_project import (
     ConversationProject,
@@ -252,6 +256,56 @@ class ConversationProjectService:
         """
         return get_project_conversations(project_id, user_id)
 
+    @staticmethod
+    def sync_conversation_projects(
+        conversation_id: int,
+        project_ids: list[int],
+        user_id: int
+    ) -> dict:
+        """
+        Syncs a conversation's project memberships to match the provided list.
+
+        Removes conversation from projects not in the list,
+        adds conversation to projects in the list that it's not already in.
+
+        Args:
+            conversation_id: The conversation to sync
+            project_ids: The desired list of project IDs
+            user_id: User ID for permission verification
+
+        Returns:
+            Dict with 'added', 'removed', and 'unchanged' counts
+        """
+        # Get current projects
+        current = get_conversation_projects(conversation_id, user_id)
+        current_ids = {p['id'] for p in current}
+        target_ids = set(project_ids)
+
+        # Calculate diff
+        to_add = target_ids - current_ids
+        to_remove = current_ids - target_ids
+
+        added = 0
+        removed = 0
+
+        # Remove from projects no longer wanted
+        for project_id in to_remove:
+            if remove_conversation_from_project(conversation_id, project_id, user_id):
+                removed += 1
+
+        # Add to new projects
+        for project_id in to_add:
+            result = add_conversation_to_project(conversation_id, project_id, user_id)
+            if result.get('success'):
+                added += 1
+
+        return {
+            'added': added,
+            'removed': removed,
+            'unchanged': len(current_ids & target_ids),
+            'total': len(target_ids)
+        }
+
     # =========================================================================
     # Invites
     # =========================================================================
@@ -324,6 +378,39 @@ class ConversationProjectService:
         """
         return decline_project_invite(invite_id, user_email)
 
+    @staticmethod
+    def get_invites_for_project(project_id: int, user_id: int) -> list[dict]:
+        """
+        Gets all invites for a project (owner view).
+        
+        Returns pending, declined, and expired invites.
+        Only the project owner can view this.
+        
+        Args:
+            project_id: The project ID
+            user_id: User ID for ownership verification
+            
+        Returns:
+            List of invite dicts with status info
+        """
+        return get_project_invites(project_id, user_id)
+
+    @staticmethod
+    def cancel_invite(invite_id: int, user_id: int) -> bool:
+        """
+        Cancels a pending project invite.
+        
+        Only the project owner can cancel invites.
+        
+        Args:
+            invite_id: The invite ID to cancel
+            user_id: User ID for ownership verification
+            
+        Returns:
+            True if cancellation succeeded
+        """
+        return cancel_project_invite(invite_id, user_id)
+
     # =========================================================================
     # Members
     # =========================================================================
@@ -361,3 +448,36 @@ class ConversationProjectService:
             True if removal succeeded
         """
         return remove_project_member(project_id, member_user_id, requested_by)
+
+    # =========================================================================
+    # Community (Open Projects)
+    # =========================================================================
+
+    @staticmethod
+    def list_community_projects(user_id: int) -> list[dict]:
+        """
+        Lists all shared_open projects the user hasn't joined yet.
+        
+        These are discoverable projects anyone can join without an invite.
+        
+        Args:
+            user_id: The current user's ID
+            
+        Returns:
+            List of project dicts available to join
+        """
+        return get_community_projects(user_id)
+
+    @staticmethod
+    def join_project(project_id: int, user_id: int) -> dict:
+        """
+        Joins a shared_open project directly (no invite required).
+        
+        Args:
+            project_id: The project to join
+            user_id: The user joining
+            
+        Returns:
+            Dict with 'success' and 'message' keys
+        """
+        return join_open_project(project_id, user_id)

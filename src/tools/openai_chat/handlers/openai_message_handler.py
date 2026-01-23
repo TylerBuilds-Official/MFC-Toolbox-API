@@ -3,7 +3,7 @@ from typing import AsyncGenerator, Any
 
 import openai
 
-from src.tools.tool_utils import OAToolBase, get_chat_tools
+from src.tools.tool_utils import OAToolBase, get_chat_tools, get_tool
 from src.data.valid_models import VALID_OA_MODELS
 from src.data.model_capabilities import get_capabilities
 
@@ -278,7 +278,20 @@ class OpenAIMessageHandler:
                     except Exception as e:
                         result_str = json.dumps({"error": str(e)})
                     
-                    yield {"type": "tool_end", "name": tc["name"], "params": tool_args, "result": result_str}
+                    # Look up render hint from registry (backwards compatible)
+                    tool_def = get_tool(tc["name"])
+                    render_hint = tool_def.get("chat_render_hint") if tool_def else None
+                    
+                    tool_event = {
+                        "type": "tool_end",
+                        "name": tc["name"],
+                        "params": tool_args,
+                        "result": result_str
+                    }
+                    if render_hint:
+                        tool_event["chat_render_hint"] = render_hint
+                    
+                    yield tool_event
                     
                     messages.append({
                         "role": "tool",

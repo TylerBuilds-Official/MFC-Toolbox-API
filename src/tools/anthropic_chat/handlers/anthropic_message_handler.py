@@ -3,7 +3,7 @@ from typing import AsyncGenerator, Any
 
 from anthropic import Anthropic
 
-from src.tools.tool_utils import OAToolBase, get_chat_tools
+from src.tools.tool_utils import OAToolBase, get_chat_tools, get_tool
 from src.data.valid_models import VALID_ANT_MODELS
 from src.data.model_capabilities import get_capabilities, supports_extended_thinking
 
@@ -393,7 +393,20 @@ class AnthropicMessageHandler:
                     except Exception as e:
                         result_str = json.dumps({"error": str(e)})
 
-                    yield {"type": "tool_end", "name": tool_use["name"], "params": tool_use["input"], "result": result_str}
+                    # Look up render hint from registry (backwards compatible)
+                    tool_def = get_tool(tool_use["name"])
+                    render_hint = tool_def.get("chat_render_hint") if tool_def else None
+                    
+                    tool_event = {
+                        "type": "tool_end",
+                        "name": tool_use["name"],
+                        "params": tool_use["input"],
+                        "result": result_str
+                    }
+                    if render_hint:
+                        tool_event["chat_render_hint"] = render_hint
+                    
+                    yield tool_event
 
                     tool_results.append({
                         "type": "tool_result",

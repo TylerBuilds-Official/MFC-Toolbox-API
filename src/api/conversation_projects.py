@@ -61,6 +61,11 @@ class AddConversationRequest(BaseModel):
     project_id: int
 
 
+class SetConversationProjectsRequest(BaseModel):
+    """Request body for setting all projects for a conversation."""
+    project_ids: list[int]
+
+
 class InviteRequest(BaseModel):
     """Request body for inviting a user to a project."""
     email: EmailStr
@@ -150,6 +155,24 @@ async def get_pending_invites(user: User = Depends(require_active_user)):
     return {
         "invites": [i.to_dict() for i in invites],
         "count": len(invites)
+    }
+
+
+# ============================================================================
+# Community (Open Projects) - MUST come before /{project_id} routes!
+# ============================================================================
+
+@router.get("/conversations/projects/community")
+async def list_community_projects(user: User = Depends(require_active_user)):
+    """
+    List all shared_open projects the user hasn't joined yet.
+    
+    These are discoverable projects anyone can join without an invite.
+    """
+    projects = ConversationProjectService.list_community_projects(user.id)
+    return {
+        "projects": projects,
+        "count": len(projects)
     }
 
 
@@ -384,6 +407,74 @@ async def remove_project_member(
     return {"success": True, "message": "Member removed"}
 
 
+@router.get("/conversations/projects/{project_id}/invites")
+async def get_project_invites(
+    project_id: int,
+    user: User = Depends(require_active_user)
+):
+    """
+    Get all invites for a project (owner view).
+    
+    Returns pending, declined, and expired invites.
+    Only the project owner can view this.
+    """
+    try:
+        invites = ConversationProjectService.get_invites_for_project(project_id, user.id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    
+    return {
+        "invites": invites,
+        "count": len(invites)
+    }
+
+
+@router.delete("/conversations/projects/{project_id}/invites/{invite_id}")
+async def cancel_project_invite(
+    project_id: int,
+    invite_id: int,
+    user: User = Depends(require_active_user)
+):
+    """
+    Cancel a pending project invite.
+    
+    Only the project owner can cancel invites.
+    Only pending invites can be cancelled.
+    """
+    try:
+        success = ConversationProjectService.cancel_invite(invite_id, user.id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to cancel invite")
+    
+    return {"success": True, "message": "Invite cancelled"}
+
+
+@router.post("/conversations/projects/{project_id}/join")
+async def join_open_project(
+    project_id: int,
+    user: User = Depends(require_active_user)
+):
+    """
+    Join a shared_open project directly (no invite required).
+    
+    Only works for shared_open projects. User will be added as a member.
+    """
+    try:
+        result = ConversationProjectService.join_project(project_id, user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    if not result.get('success'):
+        raise HTTPException(status_code=400, detail=result.get('message', 'Failed to join project'))
+    
+    return result
+
+
 # ============================================================================
 # Conversation <-> Project Membership (different base path)
 # ============================================================================
@@ -402,6 +493,30 @@ async def add_conversation_to_project(
     try:
         result = ConversationProjectService.add_conversation(
             conversation_id, body.project_id, user.id
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    return result
+
+
+@router.put("/conversations/{conversation_id}/projects")
+async def set_conversation_projects(
+    conversation_id: int,
+    body: SetConversationProjectsRequest,
+    user: User = Depends(require_active_user)
+):
+    """
+    Set all projects for a conversation (sync).
+    
+    Removes conversation from projects not in the list,
+    adds conversation to projects in the list.
+    """
+    try:
+        result = ConversationProjectService.sync_conversation_projects(
+            conversation_id, body.project_ids, user.id
         )
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))

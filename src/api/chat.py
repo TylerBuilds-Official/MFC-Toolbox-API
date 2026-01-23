@@ -428,6 +428,9 @@ async def chat_stream(
                                 block["params"] = event.get("params", {})
                                 block["result"] = event.get("result")
                                 block["isComplete"] = True
+                                # Persist render hint if present
+                                if event.get("chat_render_hint"):
+                                    block["chatRenderHint"] = event.get("chat_render_hint")
                                 break
                     elif event_type == "done":
                         full_response = event.get("full_response", full_response)
@@ -466,6 +469,9 @@ async def chat_stream(
                                 block["params"] = event.get("params", {})
                                 block["result"] = event.get("result")
                                 block["isComplete"] = True
+                                # Persist render hint if present
+                                if event.get("chat_render_hint"):
+                                    block["chatRenderHint"] = event.get("chat_render_hint")
                                 break
                     elif event_type == "done":
                         full_response = event.get("full_response", full_response)
