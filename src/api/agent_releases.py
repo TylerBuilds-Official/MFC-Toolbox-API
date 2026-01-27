@@ -27,8 +27,9 @@ import os
 # =============================================================================
 
 # Agent release storage paths
-# For local testing: set AGENT_RELEASES_LOCAL=true in .env
-# Production uses network share, local dev uses local filesystem
+# Set AGENT_RELEASES_LOCAL=true in .env for local dev testing
+# Otherwise uses the production network share
+
 _USE_LOCAL_STORAGE = os.getenv("AGENT_RELEASES_LOCAL", "").lower() in ("true", "1", "yes")
 
 if _USE_LOCAL_STORAGE:
