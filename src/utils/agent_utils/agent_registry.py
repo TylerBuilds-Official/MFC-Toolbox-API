@@ -105,6 +105,73 @@ class AgentRegistry:
             for agent in self._agents.values()
         ]
     
+    @property
+    def connection_count(self) -> int:
+        """Return number of connected agents."""
+        return len(self._agents)
+    
+    async def broadcast(self, message: dict) -> int:
+        """
+        Broadcast a message to all connected agents.
+        
+        Args:
+            message: The message dict to send to all agents
+            
+        Returns:
+            Number of agents the message was sent to
+        """
+        sent_count = 0
+        disconnected = []
+        
+        for username, agent in self._agents.items():
+            try:
+                await agent.websocket.send_json(message)
+                sent_count += 1
+                print(f"[AGENT_REGISTRY] Broadcast sent to {agent.hostname} ({username})")
+            except Exception as e:
+                print(f"[AGENT_REGISTRY] Failed to broadcast to {username}: {e}")
+                disconnected.append(username)
+        
+        # Clean up disconnected agents
+        for username in disconnected:
+            await self.unregister(username)
+        
+        return sent_count
+    
+    async def broadcast_update_notification(
+        self,
+        version: str,
+        force: bool = False,
+        changelog: str = "",
+        download_url: str = None,
+        min_version: str = None
+    ) -> int:
+        """
+        Broadcast an update notification to all connected agents.
+        
+        Args:
+            version: New version available
+            force: If True, agents should update immediately
+            changelog: Description of changes
+            download_url: URL to download the update (optional, agents use default)
+            min_version: Minimum version required (agents below this will force update)
+            
+        Returns:
+            Number of agents notified
+        """
+        message = {
+            "type": "update_required" if force else "update_available",
+            "version": version,
+            "force": force,
+            "changelog": changelog,
+            "min_version": min_version
+        }
+        
+        if download_url:
+            message["download_url"] = download_url
+        
+        return await self.broadcast(message)
+    
     async def send_command(
         self,
         username: str,

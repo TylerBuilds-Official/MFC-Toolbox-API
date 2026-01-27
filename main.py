@@ -19,6 +19,7 @@ from src.api.artifacts import router as         artifacts_router
 from src.api.memories import router as          memories_router
 from src.api.chat import router as              chat_router
 from src.api.agent_ws import router as          agent_router
+from src.api.agent_releases import router as    agent_releases_router
 from src.api.connectors import router as        connectors_router
 
 
@@ -43,3 +44,4 @@ app.include_router(artifacts_router, tags=["Artifacts"])
 app.include_router(memories_router, tags=["Memories"])
 app.include_router(chat_router, tags=["Chat"])
 app.include_router(agent_router, tags=["Agent"])
+app.include_router(agent_releases_router, tags=["Agent Releases"])
