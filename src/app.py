@@ -44,6 +44,8 @@ def add_middleware(app: FastAPI):
             "https://localhost:5173",
             "https://10.0.59.72:5173",
             "https://10.0.0.10:6002",
+            "https://10.0.0.12:6001",
+            "https://10.0.0.12:6002",
         ],
         allow_credentials=True,
         allow_methods=["*"],
