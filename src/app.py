@@ -46,6 +46,7 @@ def add_middleware(app: FastAPI):
             "https://10.0.0.10:6002",
             "https://10.0.0.12:6001",
             "https://10.0.0.12:6002",
+            "https://fabcore.metalsfab.com"
         ],
         allow_credentials=True,
         allow_methods=["*"],
