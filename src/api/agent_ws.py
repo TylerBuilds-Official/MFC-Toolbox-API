@@ -73,22 +73,43 @@ async def agent_websocket(websocket: WebSocket):
         
         # Listen for responses
         while True:
-            message = await websocket.receive_json()
+            try:
+                message = await websocket.receive_json()
+            except ValueError as e:
+                # Malformed JSON from agent - log but keep connection alive
+                print(f"[AGENT_WS] Invalid JSON from {username}: {e}")
+                continue
             
-            # Route response to waiting command
-            handled = agent_registry.handle_response(username, message)
-            
-            if not handled:
-                print(f"[AGENT_WS] Unhandled message from {username}: {message}")
+            try:
+                # Route response to waiting command
+                handled = agent_registry.handle_response(username, message)
+                
+                if not handled:
+                    # Pong, ack, or other non-command response
+                    msg_type = message.get("type", "unknown")
+                    if msg_type not in ("pong", "update_ack"):
+                        print(f"[AGENT_WS] Unhandled message from {username}: {msg_type}")
+            except Exception as e:
+                print(f"[AGENT_WS] Error handling message from {username}: {e}")
     
     except WebSocketDisconnect:
         print(f"[AGENT_WS] Agent disconnected: {username or 'unknown'}")
     
     except Exception as e:
-        print(f"[AGENT_WS] Error: {e}")
+        print(f"[AGENT_WS] Connection error: {e}")
     
     finally:
+        # Fail any pending commands so they don't hang until timeout
         if username:
+            agent = agent_registry.get_agent(username)
+            if agent:
+                for cmd_id, future in list(agent.pending_commands.items()):
+                    if not future.done():
+                        future.set_result({
+                            "command_id": cmd_id,
+                            "success": False,
+                            "error": "Agent disconnected while processing command"
+                        })
             await agent_registry.unregister(username)
 
 
