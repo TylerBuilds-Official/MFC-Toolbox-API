@@ -301,9 +301,15 @@ async def oa_fs_read_file(path: str, user_id: int = None) -> dict:
         return {"error": str(e)}
 
 
+# Max bytes per chunk for write operations (4KB)
+# Keeps WebSocket payloads small and reliable
+WRITE_CHUNK_SIZE = 4 * 1024
+
+
 async def oa_fs_write_file(path: str, content: str, user_id: int = None) -> dict:
     """
     Write content to a file on the user's computer.
+    Auto-chunks large writes to prevent WebSocket timeouts.
     
     Args:
         path: File path to write
@@ -323,17 +329,44 @@ async def oa_fs_write_file(path: str, content: str, user_id: int = None) -> dict
         return perm_error
     
     try:
-        result = await agent_registry.send_command(
-            username=username,
-            module="filesystem",
-            action="write_file",
-            params={"path": path, "content": content},
-            timeout=30.0
-        )
+        content_bytes = len(content.encode('utf-8'))
+        
+        if content_bytes <= WRITE_CHUNK_SIZE:
+            # Small file - single write
+            result = await agent_registry.send_command(
+                username=username,
+                module="filesystem",
+                action="write_file",
+                params={"path": path, "content": content},
+                timeout=30.0
+            )
+        else:
+            # Large file - chunk it
+            # Split on line boundaries to avoid breaking mid-line
+            chunks = _split_content_into_chunks(content, WRITE_CHUNK_SIZE)
+            
+            for i, chunk in enumerate(chunks):
+                is_first = (i == 0)
+                result = await agent_registry.send_command(
+                    username=username,
+                    module="filesystem",
+                    action="write_file",
+                    params={
+                        "path": path,
+                        "content": chunk,
+                        "append": not is_first  # First chunk overwrites, rest append
+                    },
+                    timeout=30.0
+                )
+                if not result.get("success"):
+                    return {
+                        "error": f"Write failed on chunk {i + 1}/{len(chunks)}: {result.get('error', 'Unknown error')}"
+                    }
+        
         if result.get("success"):
             return {
                 "path": path,
-                "bytes_written": result.get("bytes_written", len(content)),
+                "bytes_written": result.get("bytes_written", content_bytes),
                 "message": f"Successfully wrote to {path}"
             }
         else:
@@ -342,6 +375,48 @@ async def oa_fs_write_file(path: str, content: str, user_id: int = None) -> dict
         return {"error": "Agent did not respond in time."}
     except Exception as e:
         return {"error": str(e)}
+
+
+def _split_content_into_chunks(content: str, max_bytes: int) -> list[str]:
+    """
+    Split content into chunks on line boundaries.
+    Avoids breaking mid-line for cleaner writes.
+    """
+    lines = content.split('\n')
+    chunks = []
+    current_chunk = []
+    current_size = 0
+    
+    for line in lines:
+        line_with_newline = line + '\n'
+        line_bytes = len(line_with_newline.encode('utf-8'))
+        
+        # If a single line exceeds max, force it into its own chunk
+        if line_bytes > max_bytes:
+            if current_chunk:
+                chunks.append('\n'.join(current_chunk) + '\n')
+                current_chunk = []
+                current_size = 0
+            chunks.append(line_with_newline)
+            continue
+        
+        if current_size + line_bytes > max_bytes and current_chunk:
+            chunks.append('\n'.join(current_chunk) + '\n')
+            current_chunk = []
+            current_size = 0
+        
+        current_chunk.append(line)
+        current_size += line_bytes
+    
+    # Don't forget the last chunk
+    if current_chunk:
+        # Join without trailing newline if original didn't end with one
+        last = '\n'.join(current_chunk)
+        if content.endswith('\n'):
+            last += '\n'
+        chunks.append(last)
+    
+    return chunks
 
 
 async def oa_fs_edit_file(
