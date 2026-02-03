@@ -97,18 +97,13 @@ JOB_TOOLS = [
 
     {
         "name": "get_active_jobs",
-        "description": "Get all active jobs from ScheduleShare. Optionally include on-hold jobs.",
+        "description": "Get all currently active jobs with project details.",
         "category": "job_read",
         "display_category": "Jobs",
 
         "parameters": {
             "type": "object",
-            "properties": {
-                "include_on_hold": {
-                    "type": "boolean",
-                    "description": "Whether to include on-hold jobs (default false)"
-                }
-            },
+            "properties": {},
             "required": []
         },
 
