@@ -69,8 +69,8 @@ TOOL_CATEGORIES = {
 
 VALID_SPECIALTIES = {
     "drawing_coordinator",
+    "estimator",
     # Future:
-    # "estimator",
     # "project_manager", 
 }
 
@@ -80,11 +80,9 @@ SPECIALTY_CATEGORIES = {
         "drawing_classification",       # Classify/categorize drawings
         "drawing_distribution",         # Distribute drawings to folders
     ],
-    # Future specialties:
-    # "estimator": [
-    #     "takeoff_tools",
-    #     "estimate_reports",
-    # ],
+    "estimator": [
+        "plan_classification",          # Classify construction plan PDFs by discipline
+    ],
     # "project_manager": [
     #     "pm_reports",
     #     "schedule_management",
