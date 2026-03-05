@@ -33,6 +33,10 @@ EST_TOOLS = [
                     "type": "string",
                     "description": "Output directory for breakout PDFs. Uses default if omitted.",
                 },
+                "breakout_filter": {
+                    "type": "string",
+                    "description": "'all' for every discipline, 'standard' for common disciplines only. Default 'all'.",
+                },
             },
             "required": ["pdf_path"],
         },

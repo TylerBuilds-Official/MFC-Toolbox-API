@@ -4,6 +4,7 @@ load_dotenv()
 
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from src.tools.openai_chat.client import OpenAIClient
 from src.tools.anthropic_chat.client import AnthropicClient
@@ -15,6 +16,8 @@ from src.utils.conversation_utils.summary_helper import ConversationSummaryHelpe
 from src.utils.memory_utils import MemoryService
 from src.utils.conversation_state_utils import ConversationStateService
 from src.utils.conversation_project_utils import ConversationProjectService
+from src.utils.file_utils import FileService
+from src.utils.file_utils.content_builder import build_user_content, build_user_content_openai
 from src.data.model_capabilities import get_capabilities, get_provider
 from src.data.instructions import Instructions
 from src.tools.state.state_handler import StateHandler
@@ -22,6 +25,17 @@ from src.api.dependencies import get_openai_message_handler, get_anthropic_messa
 
 
 router = APIRouter()
+
+
+class ChatRequest(BaseModel):
+    """Request body for chat endpoints."""
+
+    message:         str
+    model:           str | None       = None
+    provider:        str | None       = None
+    conversation_id: int | None       = None
+    project_id:      int | None       = None
+    file_ids:        list[str] | None = None
 
 
 def get_project_instructions(project_id: int, user_id: int) -> str | None:
@@ -260,31 +274,20 @@ async def chat(message: str, model: str = None,
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/chat/stream")
+@router.post("/chat/stream")
 async def chat_stream(
-        message: str,
-        model: str = None,
-        provider: str = None,
-        conversation_id: int = None,
-        project_id: int = None,
+        body: ChatRequest,
         user: User = Depends(require_active_user),
         openai_message_handler=Depends(get_openai_message_handler),
-        anthropic_message_handler=Depends(get_anthropic_message_handler)
-):
-    """
-    Stream a chat response via Server-Sent Events (SSE).
+        anthropic_message_handler=Depends(get_anthropic_message_handler) ):
+    """Stream a chat response via Server-Sent Events (SSE)."""
 
-    Args:
-        message: The user's message
-        model: Model to use (optional - falls back to user's default)
-        provider: Provider to use (optional - falls back to user's default)
-        conversation_id: Conversation to continue (optional)
-        project_id: Project context (optional - applies custom instructions, links new convos)
-        user: Current authenticated user
-
-    Returns:
-        StreamingResponse with SSE events
-    """
+    message         = body.message
+    model           = body.model
+    provider        = body.provider
+    conversation_id = body.conversation_id
+    project_id      = body.project_id
+    file_ids        = body.file_ids or []
 
     # Resolve provider and model from user settings
     settings = UserSettingsService.get_settings(user.id)
@@ -309,6 +312,16 @@ async def chat_stream(
 
     # Get project instructions if project context provided
     project_instructions = get_project_instructions(project_id, user.id)
+
+    # Resolve attached files
+    attached_files = []
+    if file_ids:
+        attached_files = FileService.get_files(file_ids)
+        print(f"[chat/stream] Resolved {len(attached_files)} files from {len(file_ids)} IDs")
+        for af in attached_files:
+            print(f"  - {af.original_name} ({af.category}, {af.mime_type}, exists={FileService._storage.file_exists(af.storage_path)})")
+    else:
+        print(f"[chat/stream] No file_ids in request")
 
     # Get or create conversation
     is_new_conversation = False
@@ -337,8 +350,8 @@ async def chat_stream(
 
     state_handler.update_state_from_message(message)
 
-    # Save user message
-    MessageService.add_message(
+    # Save user message and link files
+    user_msg = MessageService.add_message(
         conversation_id=conversation_id,
         role="user",
         content=message,
@@ -347,6 +360,19 @@ async def chat_stream(
         tokens_used=None,
         user_id=user.id
     )
+
+    if file_ids:
+        FileService.link_to_message(file_ids, user_msg.id)
+
+    # Build multimodal content for the LLM
+    if provider == "anthropic":
+        llm_content = build_user_content(message, attached_files)
+    else:
+        llm_content = build_user_content_openai(message, attached_files)
+
+    print(f"[chat/stream] llm_content type={type(llm_content).__name__}, is_list={isinstance(llm_content, list)}")
+    if isinstance(llm_content, list):
+        print(f"[chat/stream] content blocks: {[b.get('type') for b in llm_content]}")
 
     # Build instructions with memories and project instructions
     state = state_handler.get_state()
@@ -376,7 +402,7 @@ async def chat_stream(
             if provider == "anthropic":
                 async for event in anthropic_message_handler.handle_message_stream(
                         instructions=instructions,
-                        message=message,
+                        message=llm_content,
                         model=model,
                         enable_thinking=enable_thinking,
                         thinking_budget=thinking_budget,
@@ -445,7 +471,7 @@ async def chat_stream(
             else:
                 async for event in openai_message_handler.handle_message_stream(
                         instructions=instructions,
-                        message=message,
+                        message=llm_content,
                         model=model,
                         tool_context=tool_context
                 ):

@@ -41,16 +41,16 @@ class ConversationSummaryHelper:
         try:
             if provider == "openai":
                 response = client.chat.completions.create(
-                    model="gpt-4o-mini",
+                    model="gpt-5-nano",
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=20,
+                    max_completion_tokens=20,
                     temperature=0.7
                 )
                 return response.choices[0].message.content.strip()[:50]
 
             elif provider == "anthropic":
                 response = client.messages.create(
-                    model="claude-3-5-haiku-20241022",
+                    model="claude-haiku-4-5-20251001",
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=20
                 )
@@ -74,15 +74,15 @@ class ConversationSummaryHelper:
         try:
             if provider == "openai":
                 response = client.chat.completions.create(
-                    model="gpt-4o-mini",
+                    model="gpt-5-nano",
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=100,
+                    max_completion_tokens=100,
                     temperature=0.5)
                 return response.choices[0].message.content.strip()
 
             if provider == "anthropic":
                 reponse = client.messages.create(
-                    model="claude-3-5-haiku-20241022",
+                    model="claude-haiku-4-5-20251001",
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=100)
                 return reponse.content[0].text.strip()

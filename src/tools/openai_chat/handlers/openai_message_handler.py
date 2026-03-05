@@ -16,7 +16,7 @@ class OpenAIMessageHandler:
     
     def __init__(self, client: openai.OpenAI):
         self.client = client
-        self.model = "gpt-4o"
+        self.model = "gpt-5.2-chat-latest"
         self.tool_base = OAToolBase()
 
     def _get_token_param(self, value: int = 16384) -> dict:
@@ -37,7 +37,7 @@ class OpenAIMessageHandler:
     # Synchronous Handler (existing)
     # =========================================================================
     
-    def handle_message(self, instructions: str, message: str, history: list = None, model: str = 'gpt-4o', tool_context: dict = None) -> str:
+    def handle_message(self, instructions: str, message: str | list[dict], history: list = None, model: str = 'gpt-5.2-chat-latest', tool_context: dict = None) -> str:
         """
         Send a message to OpenAI and return the assistant's response.
         
@@ -45,7 +45,7 @@ class OpenAIMessageHandler:
             instructions: System prompt with guardrails and context
             message: Current user message
             history: Optional list of previous messages (for future full-history mode)
-            model: OpenAI model to use (default: 'gpt-4o')
+            model: OpenAI model to use
             tool_context: Server-side context for tools (user_id, conversation_id)
         
         Returns:
@@ -115,9 +115,9 @@ class OpenAIMessageHandler:
     async def handle_message_stream(
         self, 
         instructions: str, 
-        message: str, 
+        message: str | list[dict], 
         history: list = None, 
-        model: str = 'gpt-4o',
+        model: str = 'gpt-5.2-chat-latest',
         tool_context: dict = None
     ) -> AsyncGenerator[dict[str, Any], None]:
         """

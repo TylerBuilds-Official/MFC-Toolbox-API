@@ -33,30 +33,9 @@ class ModelCapabilities:
 MODEL_CAPABILITIES: dict[str, ModelCapabilities] = {
 
     # -------------------------------------------------------------------------
-    # OpenAI Models - NO reasoning
-    # -------------------------------------------------------------------------
-    "gpt-4o": ModelCapabilities(
-        provider="openai",
-        reasoning_type="none",
-        default_max_tokens=16384,
-    ),
-
-    "gpt-4.1": ModelCapabilities(
-        provider="openai",
-        reasoning_type="none",
-        default_max_tokens=32768,
-    ),
-    
-    # -------------------------------------------------------------------------
     # OpenAI Models - WITH reasoning (summary only, tokens hidden)
     # -------------------------------------------------------------------------
-    "gpt-5": ModelCapabilities(
-        provider="openai",
-        reasoning_type="summary",
-        default_reasoning_effort="medium",
-        default_max_tokens=32768,
-    ),
-    "gpt-5.1": ModelCapabilities(
+    "gpt-5.1-chat-latest": ModelCapabilities(
         provider="openai",
         reasoning_type="summary",
         default_reasoning_effort="medium",
@@ -68,37 +47,17 @@ MODEL_CAPABILITIES: dict[str, ModelCapabilities] = {
         default_reasoning_effort="medium",
         default_max_tokens=32768,
     ),
-    
-    # -------------------------------------------------------------------------
-    # Anthropic Models - Haiku does NOT support extended thinking
-    # -------------------------------------------------------------------------
-    "claude-3-5-haiku-latest": ModelCapabilities(
-        provider="anthropic",
-        reasoning_type="none",
-        default_max_tokens=8192,
+    "gpt-5.3-chat-latest": ModelCapabilities(
+        provider="openai",
+        reasoning_type="summary",
+        default_reasoning_effort="medium",
+        default_max_tokens=32768,
     ),
-    "claude-3-5-haiku-20241022": ModelCapabilities(
-        provider="anthropic",
-        reasoning_type="none",
-        default_max_tokens=8192,
-    ),
-    "claude-haiku-4-5": ModelCapabilities(
-        provider="anthropic",
-        reasoning_type="none",
-        default_max_tokens=8192,
-    ),
-    
+
     # -------------------------------------------------------------------------
     # Anthropic Models - WITH extended thinking support
     # -------------------------------------------------------------------------
-    "claude-3-7-sonnet-latest": ModelCapabilities(
-        provider="anthropic",
-        reasoning_type="extended_thinking",
-        default_thinking_budget=10000,
-        default_max_tokens=32768,
-        max_thinking_tokens=32000,
-    ),
-    "claude-sonnet-4-5-20250929": ModelCapabilities(
+    "claude-sonnet-4-6": ModelCapabilities(
         provider="anthropic",
         reasoning_type="extended_thinking",
         default_thinking_budget=10000,
@@ -106,6 +65,13 @@ MODEL_CAPABILITIES: dict[str, ModelCapabilities] = {
         max_thinking_tokens=32000,
     ),
     "claude-opus-4-5-20251101": ModelCapabilities(
+        provider="anthropic",
+        reasoning_type="extended_thinking",
+        default_thinking_budget=16000,
+        default_max_tokens=32768,
+        max_thinking_tokens=64000,
+    ),
+    "claude-opus-4-6": ModelCapabilities(
         provider="anthropic",
         reasoning_type="extended_thinking",
         default_thinking_budget=16000,

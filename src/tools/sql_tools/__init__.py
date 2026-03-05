@@ -154,6 +154,17 @@ from src.tools.sql_tools.artifacts.link_artifacts_to_message import link_artifac
 
 
 # ============================================
+# Chat Files
+# ============================================
+
+from src.tools.sql_tools.chat_files.create_chat_file import create_chat_file
+from src.tools.sql_tools.chat_files.get_chat_file import get_chat_file, get_chat_files_by_ids
+from src.tools.sql_tools.chat_files.get_chat_files_by_message import get_chat_files_by_message
+from src.tools.sql_tools.chat_files.get_chat_files_by_message_ids import get_chat_files_by_message_ids
+from src.tools.sql_tools.chat_files.link_files_to_message import link_files_to_message
+
+
+# ============================================
 # Reporting (Voltron / MySQL)
 # ============================================
 
@@ -282,6 +293,14 @@ __all__ = [
     "create_data_session_from_artifact",
     "get_existing_session_for_artifact",
     "link_artifacts_to_message",
+    
+    # Chat Files
+    "create_chat_file",
+    "get_chat_file",
+    "get_chat_files_by_ids",
+    "get_chat_files_by_message",
+    "get_chat_files_by_message_ids",
+    "link_files_to_message",
     
     # Reporting
     "get_jobs",

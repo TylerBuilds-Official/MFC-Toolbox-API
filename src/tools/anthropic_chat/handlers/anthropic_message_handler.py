@@ -16,7 +16,7 @@ class AnthropicMessageHandler:
 
     def __init__(self, client: Anthropic):
         self.client = client
-        self.model = "claude-sonnet-4-5-20250929"
+        self.model = "claude-sonnet-4-6"
         self.tool_base = OAToolBase()
 
     # =========================================================================
@@ -26,9 +26,9 @@ class AnthropicMessageHandler:
     def handle_message(
         self, 
         instructions: str, 
-        message: str, 
+        message: str | list[dict], 
         history: list = None,
-        model: str = "claude-sonnet-4-5-20250929",
+        model: str = "claude-sonnet-4-6",
         enable_thinking: bool = False,
         thinking_budget: int = 10000,
         tool_context: dict = None
@@ -152,9 +152,9 @@ class AnthropicMessageHandler:
     async def handle_message_stream(
         self,
         instructions: str,
-        message: str,
+        message: str | list[dict],
         history: list = None,
-        model: str = "claude-sonnet-4-5-20250929",
+        model: str = "claude-sonnet-4-6",
         enable_thinking: bool = False,
         thinking_budget: int = 10000,
         tool_context: dict = None

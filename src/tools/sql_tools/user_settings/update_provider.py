@@ -21,9 +21,9 @@ def update_model_provider(user_id: int, provider: str, default_model: str = None
     elif provider != current.provider:
         # Provider changed - check if current model is compatible
         if provider == "openai" and current.default_model.startswith("claude"):
-            new_model = "gpt-4o"
+            new_model = "gpt-5.2-chat-latest"
         elif provider == "anthropic" and current.default_model.startswith("gpt"):
-            new_model = "claude-sonnet-4-5-20250929"
+            new_model = "claude-sonnet-4-6"
         else:
             new_model = current.default_model
     else:

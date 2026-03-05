@@ -19,6 +19,7 @@ def _get_anthropic_key() -> str | None:
 async def oa_est_classify_and_breakout(
         pdf_path: str,
         output_path: str | None = None,
+        breakout_filter: str = 'all',
         user_id: int = None ) -> dict:
     """Classify a construction plan PDF and split into per-discipline files"""
 
@@ -39,6 +40,7 @@ async def oa_est_classify_and_breakout(
                 "pdf_path": pdf_path,
                 "anthropic_api_key": api_key,
                 "output_path": output_path,
+                "breakout_filter": breakout_filter,
             },
             timeout=600.0,
         )
@@ -51,8 +53,9 @@ async def oa_est_classify_and_breakout(
                 "results":     result.get("results", []),
                 "breakout":    result.get("breakout", {}),
                 "output_path": result.get("output_path"),
+                "ai_dirname":  result.get("ai_dirname"),
+                "summary":     result.get("summary", {}),
                 "timings":     result.get("timings", {}),
-                "total_cost":  result.get("total_cost", 0.0),
             }
         else:
             return {"error": result.get("error", "Classification/breakout failed")}

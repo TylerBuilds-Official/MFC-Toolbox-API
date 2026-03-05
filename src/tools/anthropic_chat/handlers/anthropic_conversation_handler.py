@@ -9,7 +9,7 @@ class AnthropicConversationHandler:
         self.state_handler = state_handler
         self.message_handler = message_handler
 
-    def handle_message(self, user_message: str, model: str = "claude-sonnet-4-5-20250929", user: User = None, memories_text: str = None, conversation_id: int = None) -> str:
+    def handle_message(self, user_message: str, model: str = "claude-sonnet-4-6", user: User = None, memories_text: str = None, conversation_id: int = None) -> str:
         self.state_handler.update_state_from_message(user_message)
         state = self.state_handler.get_state()
         state["conversation_id"] = conversation_id  # Add for recent exchanges lookup

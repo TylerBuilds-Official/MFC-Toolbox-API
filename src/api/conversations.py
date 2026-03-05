@@ -4,12 +4,33 @@ from src.utils.conversation_utils import ConversationService, MessageService
 from src.utils._dataclasses_main.create_conversation_request import CreateConversationRequest
 from src.utils._dataclasses_main.update_conversation_request import UpdateConversationRequest
 from src.tools.auth import get_current_user
+from src.utils.file_utils import FileService
 
 # for reset endpoint
 from src.tools.state.state_handler import StateHandler
 from src.utils.conversation_state_utils import ConversationStateService
 
 router = APIRouter()
+
+
+def enrich_messages_with_attachments(messages) -> list[dict]:
+    """Convert messages to dicts and attach file metadata for user messages."""
+
+    msg_dicts = [msg.to_dict() for msg in messages]
+
+    user_msg_ids = [m["id"] for m in msg_dicts if m["role"] == "user"]
+    if not user_msg_ids:
+
+        return msg_dicts
+
+    attachments_map = FileService.get_attachments_for_messages(user_msg_ids)
+
+    for msg in msg_dicts:
+        files = attachments_map.get(msg["id"])
+        if files:
+            msg["attachments"] = files
+
+    return msg_dicts
 
 @router.get("/conversations")
 async def list_conversations(include_inactive=False, user: User = Depends(require_active_user)):
@@ -46,7 +67,7 @@ async def get_conversation(conversation_id: int, user: User = Depends(require_ac
 
     return {
         "conversation": conversation.to_dict(),
-        "messages": [msg.to_dict() for msg in messages],
+        "messages": enrich_messages_with_attachments(messages),
         "conversation_provider": conversation_provider,
         "conversation_model": conversation_model,
         "has_more": result["has_more"],
@@ -91,7 +112,7 @@ async def get_conversation_messages_paginated(
     )
     
     return {
-        "messages": [msg.to_dict() for msg in result["messages"]],
+        "messages": enrich_messages_with_attachments(result["messages"]),
         "has_more": result["has_more"],
         "oldest_id": result["oldest_id"],
         "total_count": result["total_count"]
