@@ -444,83 +444,87 @@ class AdminMemoryService:
 # =============================================================================
 
 class AdminToolStatsService:
-    """Tool usage statistics from DataSessions."""
+    """Tool usage statistics from ToolExecutions + DataSessions."""
 
     @staticmethod
     def get_tool_stats() -> dict:
-        """
-        Get usage statistics for all tools.
-        
-        Returns:
-            Dict with tool usage metrics including execution counts,
-            success rates, and recent activity.
-        """
+        """Get combined usage statistics from both execution sources."""
+
         with get_mssql_connection() as conn:
             cursor = conn.cursor()
-            
-            # Get aggregated stats per tool
+
+            # Union both sources into a single aggregation
             cursor.execute(f"""
-                SELECT 
+                WITH AllExecutions AS (
+                    SELECT ToolName, UserId, Status, CreatedAt
+                    FROM {SCHEMA}.ToolExecutions
+                    UNION ALL
+                    SELECT ToolName, UserId, Status, CreatedAt
+                    FROM {SCHEMA}.DataSessions
+                    WHERE IsActive = 1
+                )
+                SELECT
                     ToolName,
-                    COUNT(*) as total_executions,
-                    SUM(CASE WHEN Status = 'success' THEN 1 ELSE 0 END) as success_count,
-                    SUM(CASE WHEN Status = 'error' THEN 1 ELSE 0 END) as error_count,
-                    SUM(CASE WHEN Status = 'pending' THEN 1 ELSE 0 END) as pending_count,
-                    SUM(CASE WHEN Status = 'running' THEN 1 ELSE 0 END) as running_count,
-                    MAX(CreatedAt) as last_used,
-                    COUNT(DISTINCT UserId) as unique_users
-                FROM {SCHEMA}.DataSessions
-                WHERE IsActive = 1
+                    COUNT(*)                                                    AS total_executions,
+                    SUM(CASE WHEN Status = 'success' THEN 1 ELSE 0 END)         AS success_count,
+                    SUM(CASE WHEN Status = 'error'   THEN 1 ELSE 0 END)         AS error_count,
+                    MAX(CreatedAt)                                              AS last_used,
+                    COUNT(DISTINCT UserId)                                       AS unique_users
+                FROM AllExecutions
                 GROUP BY ToolName
                 ORDER BY total_executions DESC
             """)
             rows = cursor.fetchall()
-            
+
             tools = []
             for row in rows:
-                total = row[1] or 0
+                total   = row[1] or 0
                 success = row[2] or 0
                 success_rate = round(success / total, 3) if total > 0 else 0.0
-                
+
                 tools.append({
-                    "name": row[0],
+                    "name":             row[0],
                     "total_executions": total,
-                    "success_count": success,
-                    "error_count": row[3] or 0,
-                    "pending_count": row[4] or 0,
-                    "running_count": row[5] or 0,
-                    "success_rate": success_rate,
-                    "last_used": row[6].isoformat() if row[6] else None,
-                    "unique_users": row[7] or 0,
+                    "success_count":    success,
+                    "error_count":      row[3] or 0,
+                    "pending_count":    0,
+                    "running_count":    0,
+                    "success_rate":     success_rate,
+                    "last_used":        row[4].isoformat() if row[4] else None,
+                    "unique_users":     row[5] or 0,
                 })
-            
-            # Get weekly trend (last 7 days)
+
+            # Weekly trend (last 7 days)
             week_ago = datetime.now() - timedelta(days=7)
             cursor.execute(f"""
-                SELECT 
-                    CAST(CreatedAt AS DATE) as day,
-                    COUNT(*) as executions
-                FROM {SCHEMA}.DataSessions
-                WHERE IsActive = 1 AND CreatedAt >= ?
+                WITH AllExecutions AS (
+                    SELECT CreatedAt FROM {SCHEMA}.ToolExecutions WHERE CreatedAt >= ?
+                    UNION ALL
+                    SELECT CreatedAt FROM {SCHEMA}.DataSessions WHERE IsActive = 1 AND CreatedAt >= ?
+                )
+                SELECT
+                    CAST(CreatedAt AS DATE) AS day,
+                    COUNT(*)               AS executions
+                FROM AllExecutions
                 GROUP BY CAST(CreatedAt AS DATE)
                 ORDER BY day ASC
-            """, (week_ago,))
+            """, (week_ago, week_ago))
             trend_rows = cursor.fetchall()
-            
+
             daily_trend = [
                 {
-                    "date": row[0].isoformat() if row[0] else None,
+                    "date":       row[0].isoformat() if row[0] else None,
                     "executions": row[1] or 0,
                 }
                 for row in trend_rows
             ]
-            
+
             cursor.close()
-            
+
             return {
-                "tools": tools,
-                "tool_count": len(tools),
-                "daily_trend": daily_trend,
+                "tools":        tools,
+                "tool_count":   len(tools),
+                "daily_trend":  daily_trend,
                 "generated_at": datetime.now().isoformat(),
             }
 

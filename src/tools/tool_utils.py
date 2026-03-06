@@ -9,6 +9,7 @@ Handles:
 - Context injection (user_id, conversation_id)
 """
 import asyncio
+import time
 from typing import Callable, Any
 
 from src.tools.tool_registry import (
@@ -237,6 +238,16 @@ def _convert_params_to_simple(openai_params: dict) -> list[dict]:
 # Tool Dispatcher Class
 # =============================================================================
 
+def _log_execution(tool_name: str, user_id: int | None, status: str, duration_ms: int) -> None:
+    """Fire-and-forget tool execution logging."""
+
+    try:
+        from src.tools.sql_tools.tool_executions import log_tool_execution
+        log_tool_execution(tool_name, user_id, status, duration_ms)
+    except Exception:
+        pass  # Never break tool execution for logging
+
+
 class ToolDispatcher:
     """
     Tool dispatcher for LLM function calling.
@@ -289,63 +300,68 @@ class ToolDispatcher:
         
         WARNING: This will NOT properly handle async tools!
         Use dispatch_async() from async contexts.
-
-        Args:
-            name: Name of the tool to execute
-            context: Server-side context (user_id, user_role, conversation_id, etc.)
-            **kwargs: Tool parameters from LLM
-
-        Returns:
-            Tool execution result
         """
         executor, prepared_kwargs = self._prepare_dispatch(name, context, **kwargs)
         
         if executor is None:
-            return prepared_kwargs  # This is the error dict
+            return prepared_kwargs
         
-        # Check if tool is async
-        tool_def = get_tool(name)
-        if tool_def and tool_def.get("is_async"):
-            # Try to run in event loop
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # Can't await from sync context when loop is running
-                    return {"error": f"Tool '{name}' is async and must be called from async context. Use dispatch_async()."}
-                else:
-                    return loop.run_until_complete(executor(**prepared_kwargs))
-            except RuntimeError:
-                return asyncio.run(executor(**prepared_kwargs))
-        
-        return executor(**prepared_kwargs)
+        user_id = context.get("user_id") if context else None
+        start   = time.perf_counter()
+        status  = "success"
+
+        try:
+            tool_def = get_tool(name)
+            if tool_def and tool_def.get("is_async"):
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        return {"error": f"Tool '{name}' is async and must be called from async context. Use dispatch_async()."}
+                    else:
+                        return loop.run_until_complete(executor(**prepared_kwargs))
+                except RuntimeError:
+                    return asyncio.run(executor(**prepared_kwargs))
+
+            return executor(**prepared_kwargs)
+
+        except Exception as e:
+            status = "error"
+            raise
+
+        finally:
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            _log_execution(name, user_id, status, duration_ms)
 
     async def dispatch_async(self, name: str, context: dict = None, **kwargs) -> Any:
         """
         Dispatch a tool call to its executor (async version).
         
         Use this from async contexts to properly handle async tools.
-
-        Args:
-            name: Name of the tool to execute
-            context: Server-side context (user_id, user_role, conversation_id, etc.)
-            **kwargs: Tool parameters from LLM
-
-        Returns:
-            Tool execution result
         """
         executor, prepared_kwargs = self._prepare_dispatch(name, context, **kwargs)
         
         if executor is None:
-            return prepared_kwargs  # This is the error dict
+            return prepared_kwargs
         
-        # Check if tool is async
-        tool_def = get_tool(name)
-        if tool_def and tool_def.get("is_async"):
-            return await executor(**prepared_kwargs)
-        else:
-            # Run sync tool in executor to not block event loop
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(None, lambda: executor(**prepared_kwargs))
+        user_id = context.get("user_id") if context else None
+        start   = time.perf_counter()
+        status  = "success"
+
+        try:
+            tool_def = get_tool(name)
+            if tool_def and tool_def.get("is_async"):
+                return await executor(**prepared_kwargs)
+            else:
+                loop = asyncio.get_event_loop()
+                return await loop.run_in_executor(None, lambda: executor(**prepared_kwargs))
+
+        except Exception as e:
+            status = "error"
+            raise
+
+        finally:
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            _log_execution(name, user_id, status, duration_ms)
     
     def is_async_tool(self, name: str) -> bool:
         """Check if a tool requires async execution."""

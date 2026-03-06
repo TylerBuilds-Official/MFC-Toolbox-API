@@ -325,6 +325,37 @@ async def list_all_memories(
 
 
 # =============================================================================
+# Tool Registry (Full catalog)
+# =============================================================================
+
+@router.get("/admin/tools/registry")
+async def get_tool_registry(user: User = Depends(require_role("admin"))):
+    """Get the full tool registry with metadata for every registered tool."""
+    from src.tools.tool_registry import TOOL_REGISTRY, TOOL_CATEGORIES, SPECIALTY_CATEGORIES
+
+    tools = []
+    for tool in TOOL_REGISTRY:
+        tools.append({
+            "name":             tool["name"],
+            "description":      tool.get("description", ""),
+            "category":         tool.get("category", ""),
+            "display_category": tool.get("display_category", ""),
+            "min_role":         TOOL_CATEGORIES.get(tool.get("category", ""), "specialty"),
+            "chat_toolbox":     tool.get("chat_toolbox", False),
+            "data_visualization": tool.get("data_visualization", False),
+            "is_async":         tool.get("is_async", False),
+            "needs_user_id":    tool.get("needs_user_id", False),
+        })
+
+    return {
+        "tools": tools,
+        "tool_count": len(tools),
+        "categories": {k: v for k, v in TOOL_CATEGORIES.items()},
+        "specialty_categories": {k: v for k, v in SPECIALTY_CATEGORIES.items()},
+    }
+
+
+# =============================================================================
 # Tool Usage Stats (P2)
 # =============================================================================
 

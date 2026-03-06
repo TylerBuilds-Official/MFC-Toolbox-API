@@ -1,6 +1,8 @@
+import base64
+
 from src.utils.file_utils._dataclasses.chat_file import ChatFile
 from src.utils.file_utils.file_service import FileService
-from src.utils.file_utils.extractors import extract_docx_as_markdown, extract_xlsx_as_text
+from src.utils.file_utils.extractors import extract_docx_as_markdown, extract_xlsx_as_text, compress_image_for_llm
 
 
 def _is_docx(file: ChatFile) -> bool:
@@ -18,12 +20,13 @@ def build_user_content(message: str, files: list[ChatFile]) -> list[dict] | str:
 
     for file in files:
         if file.category == "images":
-            b64_data = FileService.read_base64(file)
+            img_bytes, mime = compress_image_for_llm(file.storage_path)
+            b64_data = base64.b64encode(img_bytes).decode('utf-8')
             content_blocks.append({
                 "type": "image",
                 "source": {
                     "type": "base64",
-                    "media_type": file.mime_type,
+                    "media_type": mime,
                     "data": b64_data,
                 },
             })
@@ -82,8 +85,9 @@ def build_user_content_openai(message: str, files: list[ChatFile]) -> list[dict]
 
     for file in files:
         if file.category == "images":
-            b64_data = FileService.read_base64(file)
-            data_uri = f"data:{file.mime_type};base64,{b64_data}"
+            img_bytes, mime = compress_image_for_llm(file.storage_path)
+            b64_data = base64.b64encode(img_bytes).decode('utf-8')
+            data_uri = f"data:{mime};base64,{b64_data}"
             content_blocks.append({
                 "type": "image_url",
                 "image_url": {"url": data_uri},

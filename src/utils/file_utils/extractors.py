@@ -8,11 +8,66 @@ Extraction utilities for preprocessing uploaded files into LLM-friendly text.
 #       (sheet_name, page_range, section_heading, etc.) for on-demand deep inspection.
 """
 
+import io
 from pathlib import Path
 
+from PIL import Image
 from docx import Document as DocxDocument
 from docx.table import Table as DocxTable
 from openpyxl import load_workbook
+
+
+# Max base64 size for LLM APIs (Anthropic limit is 5MB)
+LLM_IMAGE_MAX_BYTES = 4 * 1024 * 1024  # 4MB to leave headroom
+
+
+def compress_image_for_llm(file_path: str, max_bytes: int = LLM_IMAGE_MAX_BYTES) -> tuple[bytes, str]:
+    """Compress an image to fit within LLM API limits.
+
+    Returns (compressed_bytes, mime_type). Keeps original format if small enough,
+    otherwise converts to JPEG and scales down progressively.
+    """
+
+    raw = Path(file_path).read_bytes()
+    if len(raw) <= max_bytes:
+
+        # Infer mime from extension
+        ext = Path(file_path).suffix.lower()
+        mime_map = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                    ".gif": "image/gif", ".webp": "image/webp"}
+
+        return raw, mime_map.get(ext, "image/jpeg")
+
+    img = Image.open(file_path)
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+
+    # Try quality reduction first
+    for quality in (85, 70, 50, 30):
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality, optimize=True)
+        if buf.tell() <= max_bytes:
+
+            return buf.getvalue(), "image/jpeg"
+
+    # Scale down if quality alone isn't enough
+    for scale in (0.75, 0.5, 0.35, 0.25):
+        resized = img.resize(
+            (int(img.width * scale), int(img.height * scale)),
+            Image.LANCZOS
+        )
+        buf = io.BytesIO()
+        resized.save(buf, format="JPEG", quality=50, optimize=True)
+        if buf.tell() <= max_bytes:
+
+            return buf.getvalue(), "image/jpeg"
+
+    # Last resort — tiny
+    resized = img.resize((800, int(800 * img.height / img.width)), Image.LANCZOS)
+    buf = io.BytesIO()
+    resized.save(buf, format="JPEG", quality=40, optimize=True)
+
+    return buf.getvalue(), "image/jpeg"
 
 
 def _runs_to_markdown(para) -> str:
